@@ -43,6 +43,7 @@ def sample_grid_config_yaml():
     """Sample grid search YAML configuration."""
     return {
         'experiment': {
+            'name': 'test_experiment',
             'optimization_method': 'grid',
             'model_names': ['Gaussian'],
             'n_replications': 2,
@@ -50,20 +51,28 @@ def sample_grid_config_yaml():
             'single_thread': True
         },
         'hyperparameters': {
-            'n_components': [2, 3],
-            'jump_penalty': [0.1],
-            'kappa': [0.5]
+            'n_states_values': [2, 3],
+            'jump_penalty_min': 0.1,
+            'jump_penalty_max': 0.1,
+            'jump_penalty_num': 1,
+            'kappa_min': 0.5,
+            'kappa_max_fixed': 0.5,
+            'kappa_max_type': 'fixed',
+            'kappa_num': 1
         },
         'data_grid': {
-            'n_samples': [50],
-            'n_states': [2],
-            'n_informative': [3],
-            'n_total_features': [5],
-            'delta': [0.5],
-            'lambda_0': [2.0],
-            'persistence': [0.9],
-            'distribution_type': ['gaussian'],
-            'random_seed': [42]
+            'n_total_features_values': [5],
+            'delta_values': [0.5],
+            'distribution_types': ['Gaussian'],
+            'correlated_noise_values': [False],
+            'n_samples': 50,
+            'n_states': 2,
+            'n_informative': 3,
+            'lambda_0': 2.0,
+            'persistence': 0.9,
+            'noise_correlation': 0.1,
+            'nb_dispersion': 2.0,
+            'base_seed': 42
         }
     }
 
@@ -73,6 +82,7 @@ def sample_optuna_config_yaml():
     """Sample Optuna optimization YAML configuration."""
     return {
         'experiment': {
+            'name': 'test_optuna',
             'optimization_method': 'optuna',
             'model_names': ['Gaussian'],
             'n_replications': 1,
@@ -81,20 +91,28 @@ def sample_optuna_config_yaml():
             'single_thread': True
         },
         'hyperparameters': {
-            'n_components': [2, 3, 4],
-            'jump_penalty': [0.01, 1.0],
-            'kappa': [0.3, 1.5]
+            'n_states_values': [2, 3, 4],
+            'jump_penalty_min': 0.01,
+            'jump_penalty_max': 1.0,
+            'jump_penalty_num': 2,
+            'kappa_min': 0.3,
+            'kappa_max_fixed': 1.5,
+            'kappa_max_type': 'fixed',
+            'kappa_num': 2
         },
         'data_grid': {
-            'n_samples': [50],
-            'n_states': [2],
-            'n_informative': [3],
-            'n_total_features': [5],
-            'delta': [0.5],
-            'lambda_0': [2.0],
-            'persistence': [0.9],
-            'distribution_type': ['gaussian'],
-            'random_seed': [42]
+            'n_total_features_values': [5],
+            'delta_values': [0.5],
+            'distribution_types': ['Gaussian'],
+            'correlated_noise_values': [False],
+            'n_samples': 50,
+            'n_states': 2,
+            'n_informative': 3,
+            'lambda_0': 2.0,
+            'persistence': 0.9,
+            'noise_correlation': 0.1,
+            'nb_dispersion': 2.0,
+            'base_seed': 42
         }
     }
 
@@ -313,15 +331,18 @@ class TestConfigDrivenBehavior:
         """Test that data generation parameters come from config."""
         config_yaml = sample_grid_config_yaml.copy()
         config_yaml['data_grid'] = {
-            'n_samples': [123],  # Specific value
-            'n_states': [7],
-            'n_informative': [11],
-            'n_total_features': [15],
-            'delta': [0.789],
-            'lambda_0': [3.45],
-            'persistence': [0.876],
-            'distribution_type': ['negative_binomial'],
-            'random_seed': [999]
+            'n_total_features_values': [15],
+            'delta_values': [0.789],
+            'distribution_types': ['NegativeBinomial'],
+            'correlated_noise_values': [False],
+            'n_samples': 123,  # Specific value
+            'n_states': 7,
+            'n_informative': 11,
+            'lambda_0': 3.45,
+            'persistence': 0.876,
+            'noise_correlation': 0.1,
+            'nb_dispersion': 2.0,
+            'base_seed': 999
         }
         
         config_file = temp_config_dir / "test_dataparam.yaml"

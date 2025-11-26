@@ -12,11 +12,16 @@ Key metrics:
 - Composite scores
 """
 
+import warnings
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score
 from typing import Tuple, List, Dict, Optional
 from itertools import permutations
+
+# Suppress sklearn warnings about y_pred containing classes not in y_true
+# This is expected during hyperparameter search when models don't identify all states
+warnings.filterwarnings('ignore', message='y_pred contains classes not in y_true', category=UserWarning)
 
 
 ###############################################################################

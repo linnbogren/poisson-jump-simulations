@@ -322,39 +322,46 @@ def fit_and_evaluate(
     ... )
     >>> print(results['balanced_accuracy'])
     """
-    # TODO: Re-enable exception handling after testing
-    # try:
-    # Create and fit model
-    wrapper = ModelWrapper(
-        model_name=model_name,
-        n_components=hyperparameters['n_components'],
-        max_feats=hyperparameters['max_feats'],
-        jump_penalty=hyperparameters['jump_penalty'],
-        random_state=config.random_seed,
-        verbose=0
-    )
-    
-    wrapper.fit(X)
-    
-    # Evaluate
-    results = wrapper.evaluate(X, true_states, config)
-    results['success'] = True
-    
-    if return_model:
-        results['model'] = wrapper.model
-        results['wrapper'] = wrapper
-    
-    return results
-    
-    # TODO: Re-enable exception handling after testing
-    # except Exception as e:
-    #     # Return failure marker
-    #     return {
-    #         'success': False,
-    #         'error': str(e),
-    #         'model_name': model_name,
-    #         'hyperparameters': hyperparameters,
-    #     }
+    try:
+        # Create and fit model
+        wrapper = ModelWrapper(
+            model_name=model_name,
+            n_components=hyperparameters['n_components'],
+            max_feats=hyperparameters['max_feats'],
+            jump_penalty=hyperparameters['jump_penalty'],
+            random_state=config.random_seed,
+            verbose=0
+        )
+        
+        wrapper.fit(X)
+        
+        # Evaluate
+        results = wrapper.evaluate(X, true_states, config)
+        results['success'] = True
+        results['convergence_failed'] = False
+        
+        if return_model:
+            results['model'] = wrapper.model
+            results['wrapper'] = wrapper
+        
+        return results
+        
+    except ValueError as e:
+        # Catch specific convergence/initialization failures from the jump model
+        error_msg = str(e)
+        if 'initialization' in error_msg.lower() or 'converge' in error_msg.lower() or 'finite loss' in error_msg.lower():
+            # This is an expected convergence failure - return failure marker
+            return {
+                'success': False,
+                'convergence_failed': True,
+                'error': error_msg,
+                'error_type': 'ConvergenceError',
+                'model_name': model_name,
+                'hyperparameters': hyperparameters,
+            }
+        else:
+            # Unexpected ValueError - re-raise it
+            raise
 
 
 def results_to_grid_search_result(
@@ -389,6 +396,10 @@ def results_to_grid_search_result(
         n_breakpoints_estimated=results['n_breakpoints_estimated'],
         breakpoint_count_error=results['breakpoint_count_error'],
         chamfer_distance=results['chamfer_distance'],
+        composite_score=results['composite_score'],
+        breakpoint_f1=results['breakpoint_f1'],
+        breakpoint_precision=results['breakpoint_precision'],
+        breakpoint_recall=results['breakpoint_recall'],
         feature_f1=results['feature_f1'],
         feature_precision=results['feature_precision'],
         feature_recall=results['feature_recall'],
@@ -450,6 +461,10 @@ def grid_results_to_dataframe(results: List[GridSearchResult]) -> pd.DataFrame:
             'n_breakpoints_estimated': result.n_breakpoints_estimated,
             'breakpoint_count_error': result.breakpoint_count_error,
             'chamfer_distance': result.chamfer_distance,
+            'composite_score': result.composite_score,
+            'breakpoint_f1': result.breakpoint_f1,
+            'breakpoint_precision': result.breakpoint_precision,
+            'breakpoint_recall': result.breakpoint_recall,
             'feature_f1': result.feature_f1,
             'feature_precision': result.feature_precision,
             'feature_recall': result.feature_recall,

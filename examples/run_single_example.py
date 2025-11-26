@@ -20,19 +20,21 @@ def main():
     out_dir = Path("examples/single_run_results")
 
     # Create a simple data configuration for a single run
+    # Testing with Poisson data - will gracefully skip failed hyperparameter combinations
     data_cfg = SimulationConfig(
         n_samples=100,
         n_states=3,
-        n_informative=5,
-        n_total_features=10,
-        delta=0.2,
+        n_informative=15,
+        n_total_features=15,
+        delta=0.5,
         lambda_0=10.0,
         persistence=0.97,
-        distribution_type="Poisson",  # Must be capitalized: "Poisson", "Gaussian", or "NegativeBinomial"
+        distribution_type="Poisson",  # Test Poisson with error handling
         random_seed=42,
     )
 
     # Create experiment configuration (single mode)
+    # Note: Some hyperparameter combinations may fail convergence and will be skipped automatically
     exp_config = ExperimentConfig(
         name="single_example",
         mode="single",
@@ -41,9 +43,20 @@ def main():
         n_replications=1,
         parallel=False,
         single_thread=True,
-        model_names=["Gaussian", "Poisson"],
+        model_names=["Gaussian", "Poisson"],  # Try both models
         optimize_metric="balanced_accuracy",
         quick_test=True,
+        hyperparameter_grid={
+            "n_states_values": [2, 3, 4],
+            "jump_penalty_min": 0.1,
+            "jump_penalty_max": 100.0,
+            "jump_penalty_num": 7,
+            "jump_penalty_scale": "log",
+            "kappa_min": 1.0,  # Some combinations will fail, but that's OK
+            "kappa_max_type": "sqrt_P",
+            "kappa_num": 14,
+            "quick_test": True,
+        }
     )
 
     print("Starting single simulation run...")
@@ -55,7 +68,7 @@ def main():
         data_configs=[data_cfg],
         output_dir=str(out_dir),
         n_jobs=1,
-        save_models=False,
+        save_models=True,
         verbose=True,
     )
 
@@ -90,8 +103,6 @@ def main():
     best = manager.load_best_results()
     print(f"\nLoaded {len(best)} best model result(s)")
     print(f"Best balanced accuracy: {best['balanced_accuracy'].max():.4f}")
-    print(f"Best composite score: {best['composite_score'].max():.4f}")
-    
     print(f"\n{'='*80}")
     print(f"Results saved to: {out_dir.absolute()}")
     print(f"{'='*80}")

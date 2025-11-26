@@ -85,6 +85,10 @@ class GridSearchResult:
     n_breakpoints_estimated: int  # Number of estimated breakpoints
     breakpoint_count_error: int  # Absolute difference in breakpoint counts
     chamfer_distance: float  # Chamfer distance between true and estimated breakpoints
+    composite_score: float  # Composite score combining BAC and breakpoint F1
+    breakpoint_f1: float  # Breakpoint detection F1 score
+    breakpoint_precision: float  # Breakpoint detection precision
+    breakpoint_recall: float  # Breakpoint detection recall
     feature_f1: float
     feature_precision: float
     feature_recall: float

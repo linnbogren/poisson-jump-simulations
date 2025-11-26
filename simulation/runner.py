@@ -81,9 +81,11 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
     all_results = []
     best_models = {}  # If saving, track best model for each type
     best_scores = {}  # Track best BAC for each model type
+    failed_convergence = {}  # Track convergence failures
     
     for model_name in model_names:
         best_scores[model_name] = -1.0
+        failed_convergence[model_name] = 0
         
         # Grid search over hyperparameters
         for params in hyperparameter_grid:
@@ -93,6 +95,9 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
             )
             
             if not result.get('success', False):
+                # Track failure type
+                if result.get('convergence_failed', False):
+                    failed_convergence[model_name] += 1
                 continue
             
             # Convert to GridSearchResult
@@ -119,8 +124,8 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
                     )
     
     if save_models and best_models:
-        return (all_results, best_models)
-    return all_results
+        return (all_results, best_models, failed_convergence)
+    return (all_results, failed_convergence)
 
 
 def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
@@ -382,10 +387,22 @@ def run_simulation(
                                  disable=not verbose):
                     # TODO: Re-enable exception handling after testing
                     # try:
+                    # Unpack result tuple
+                    if isinstance(result, tuple) and len(result) == 3:
+                        # With models: (grid_results, best_models_dict, failed_conv)
+                        grid_results, best_models_dict, failed_conv = result
+                    elif isinstance(result, tuple) and len(result) == 2:
+                        # Without models: (grid_results, failed_conv)
+                        grid_results, failed_conv = result
+                        best_models_dict = None
+                    else:
+                        # Legacy format or error
+                        grid_results = result
+                        best_models_dict = None
+                        failed_conv = {}
+                    
                     # Handle model saving
-                    if save_models and isinstance(result, tuple):
-                        grid_results, best_models_dict = result
-                        
+                    if save_models and best_models_dict:
                         # Save models
                         for model_name, model_info in best_models_dict.items():
                             grid_res = model_info['result']
@@ -397,8 +414,6 @@ def run_simulation(
                             )
                             with open(output_path / "models" / model_filename, 'wb') as f:
                                 pickle.dump(model_info['model'], f)
-                    else:
-                        grid_results = result
                     
                     # Save batch
                     batch_file = incremental_dir / f"batch_{batch_idx:06d}.pkl"
@@ -423,10 +438,22 @@ def run_simulation(
                 # try:
                 result = worker_fn(task)
                 
+                # Unpack result tuple
+                if isinstance(result, tuple) and len(result) == 3:
+                    # With models: (grid_results, best_models_dict, failed_conv)
+                    grid_results, best_models_dict, failed_conv = result
+                elif isinstance(result, tuple) and len(result) == 2:
+                    # Without models: (grid_results, failed_conv)
+                    grid_results, failed_conv = result
+                    best_models_dict = None
+                else:
+                    # Legacy format or error
+                    grid_results = result
+                    best_models_dict = None
+                    failed_conv = {}
+                
                 # Handle model saving
-                if save_models and isinstance(result, tuple):
-                    grid_results, best_models_dict = result
-                    
+                if save_models and best_models_dict:
                     # Save models
                     for model_name, model_info in best_models_dict.items():
                         grid_res = model_info['result']
@@ -438,8 +465,6 @@ def run_simulation(
                         )
                         with open(output_path / "models" / model_filename, 'wb') as f:
                             pickle.dump(model_info['model'], f)
-                else:
-                    grid_results = result
                 
                 # Save batch
                 batch_file = incremental_dir / f"batch_{batch_idx:06d}.pkl"
@@ -533,6 +558,8 @@ def select_best_models(grid_df: pd.DataFrame, metric: str = 'balanced_accuracy')
     """
     Select best model for each (config, model_name) combination.
     
+    Automatically filters out failed runs (those missing the optimization metric).
+    
     Parameters
     ----------
     grid_df : pd.DataFrame
@@ -556,9 +583,20 @@ def select_best_models(grid_df: pd.DataFrame, metric: str = 'balanced_accuracy')
     if metric not in grid_df.columns:
         raise ValueError(f"Metric '{metric}' not found in results. Available: {grid_df.columns.tolist()}")
     
+    # Filter out failed runs (those with NaN/missing metric values)
+    # Failed runs don't have metrics computed
+    valid_results = grid_df[grid_df[metric].notna()].copy()
+    
+    n_failed = len(grid_df) - len(valid_results)
+    if n_failed > 0:
+        print(f"  Filtered out {n_failed} failed runs (missing {metric})")
+    
+    if len(valid_results) == 0:
+        raise ValueError(f"No valid results found! All runs are missing '{metric}'")
+    
     # Find best (highest metric value) for each group
-    idx = grid_df.groupby(group_cols)[metric].idxmax()
-    best_df = grid_df.loc[idx].copy()
+    idx = valid_results.groupby(group_cols)[metric].idxmax()
+    best_df = valid_results.loc[idx].copy()
     
     # Rename hyperparameters
     best_df = best_df.rename(columns={

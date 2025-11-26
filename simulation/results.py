@@ -458,6 +458,35 @@ def save_experiment_metadata(
     except Exception:
         pass
     
+    # Add data configuration summary
+    if len(data_configs) == 1:
+        # For single config, include full details in metadata
+        config = data_configs[0]
+        metadata['data_config'] = {
+            'n_samples': config.n_samples,
+            'n_states': config.n_states,
+            'n_total_features': config.n_total_features,
+            'n_informative': config.n_informative,
+            'delta': config.delta,
+            'lambda_0': config.lambda_0,
+            'persistence': config.persistence,
+            'distribution_type': config.distribution_type,
+            'correlated_noise': config.correlated_noise,
+            'noise_correlation': config.noise_correlation if config.correlated_noise else None,
+            'nb_dispersion': config.nb_dispersion if config.distribution_type == 'NegativeBinomial' else None,
+            'random_seed': config.random_seed
+        }
+    else:
+        # For multiple configs, include summary statistics
+        metadata['data_config_summary'] = {
+            'n_configurations': len(data_configs),
+            'n_samples_range': [min(c.n_samples for c in data_configs), 
+                               max(c.n_samples for c in data_configs)],
+            'n_states_values': sorted(list(set(c.n_states for c in data_configs))),
+            'delta_values': sorted(list(set(c.delta for c in data_configs))),
+            'distribution_types': sorted(list(set(c.distribution_type for c in data_configs))),
+        }
+    
     # Save metadata
     with open(output_path / "metadata.json", 'w') as f:
         json.dump(metadata, f, indent=2)

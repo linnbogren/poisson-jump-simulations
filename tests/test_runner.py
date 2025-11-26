@@ -35,7 +35,7 @@ def sample_config():
         delta=0.5,
         lambda_0=2.0,
         persistence=0.9,
-        distribution_type='poisson',
+        distribution_type='Poisson',  # Must be capitalized
         random_seed=42
     )
 
@@ -54,9 +54,14 @@ def sample_hyperparameter_grid():
 def sample_grid_config():
     """Create a sample hyperparameter grid config."""
     return HyperparameterGridConfig(
-        n_components=[2, 3],
-        jump_penalty=[0.1, 0.5],
-        kappa=[0.5, 1.0]
+        n_states_values=[2, 3],
+        jump_penalty_min=0.1,
+        jump_penalty_max=0.5,
+        jump_penalty_num=2,
+        kappa_min=0.5,
+        kappa_max_fixed=1.0,
+        kappa_max_type="fixed",
+        kappa_num=2,
     )
 
 
@@ -343,16 +348,34 @@ class TestRunSimulationIntegration:
     def test_run_simulation_grid_sequential(self, temp_output_dir):
         """Test run_simulation with grid search, sequential execution."""
         experiment_config = ExperimentConfig(
+            name='test_experiment',
+            mode='single',
             optimization_method='grid',
             model_names=['Gaussian'],
             n_replications=2,
             optimize_metric='balanced_accuracy',
             hyperparameter_grid=HyperparameterGridConfig(
-                n_components=[2],
-                jump_penalty=[0.1],
-                kappa=[0.5]
+                n_states_values=[2],
+                jump_penalty_min=0.1,
+                jump_penalty_max=0.1,
+                jump_penalty_num=1,
+                kappa_min=0.5,
+                kappa_max_fixed=0.5,
+                kappa_max_type="fixed",
+                kappa_num=1,
             ),
-            single_thread=True
+            single_thread=True,
+            data=SimulationConfig(
+                n_samples=50,
+                n_states=2,
+                n_informative=3,
+                n_total_features=5,
+                delta=0.5,
+                lambda_0=2.0,
+                persistence=0.9,
+                distribution_type='Gaussian',
+                random_seed=42
+            )
         )
         
         data_configs = [
@@ -364,7 +387,7 @@ class TestRunSimulationIntegration:
                 delta=0.5,
                 lambda_0=2.0,
                 persistence=0.9,
-                distribution_type='gaussian',
+                distribution_type='Gaussian',  # Must be capitalized
                 random_seed=42
             )
         ]
@@ -390,16 +413,34 @@ class TestRunSimulationIntegration:
     def test_run_simulation_creates_metadata(self, temp_output_dir):
         """Test that run_simulation creates proper metadata."""
         experiment_config = ExperimentConfig(
+            name='test_metadata',
+            mode='single',
             optimization_method='grid',
             model_names=['Gaussian'],
             n_replications=1,
             optimize_metric='balanced_accuracy',
             hyperparameter_grid=HyperparameterGridConfig(
-                n_components=[2],
-                jump_penalty=[0.1],
-                kappa=[0.5]
+                n_states_values=[2],
+                jump_penalty_min=0.1,
+                jump_penalty_max=0.1,
+                jump_penalty_num=1,
+                kappa_min=0.5,
+                kappa_max_fixed=0.5,
+                kappa_max_type="fixed",
+                kappa_num=1,
             ),
-            single_thread=True
+            single_thread=True,
+            data=SimulationConfig(
+                n_samples=50,
+                n_states=2,
+                n_informative=3,
+                n_total_features=5,
+                delta=0.5,
+                lambda_0=2.0,
+                persistence=0.9,
+                distribution_type='Gaussian',
+                random_seed=42
+            )
         )
         
         data_configs = [
