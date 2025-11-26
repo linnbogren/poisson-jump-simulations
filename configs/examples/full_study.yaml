@@ -1,0 +1,59 @@
+# Full Simulation Experiment Configuration
+# This demonstrates a complete configuration for the full simulation study
+
+experiment:
+  name: "full_simulation_study"
+  mode: "grid"
+  n_replications: 100
+  parallel: true
+  single_thread: false
+  n_workers: null  # Use all available CPUs
+  random_seed: 42
+  output_dir: "results/full_study"
+  quick_test: false  # Full grid search
+  
+  model_names: ["Gaussian", "Poisson", "PoissonKL"]
+  optimization_method: "grid"
+  optimize_metric: "balanced_accuracy"
+  optuna_n_trials: 100
+
+# Hyperparameter grid - following the paper's recommendations
+hyperparameter_grid:
+  n_states_values: [2, 3, 4]
+  
+  # 7 logarithmically spaced values between 0.1 and 100
+  jump_penalty_min: 0.1
+  jump_penalty_max: 100.0
+  jump_penalty_num: 7
+  jump_penalty_scale: "log"
+  
+  # 14 equally spaced values from 1 to sqrt(P)
+  kappa_min: 1.0
+  kappa_max_type: "sqrt_P"
+  kappa_max_fixed: null
+  kappa_num: 14
+  
+  quick_test: false
+
+# Full data generation grid
+data_grid:
+  n_total_features_values: [15, 30, 60, 150, 300]
+  delta_values: [0.05, 0.1, 0.2, 0.5]
+  distribution_types: ["Poisson", "NegativeBinomial"]
+  correlated_noise_values: [false, true]
+  correlated_noise_distributions: ["Poisson"]
+  
+  n_samples: 500
+  n_states: 3
+  n_informative: 15
+  lambda_0: 10.0
+  persistence: 0.97
+  noise_correlation: 0.1
+  nb_dispersion: 2.0
+  base_seed: 42
+  
+  quick_test: false
+
+visualization:
+  enabled: true
+  plot_types: ["time_series", "comparison", "results"]

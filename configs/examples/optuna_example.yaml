@@ -1,0 +1,59 @@
+# Optuna Optimization Example
+# This demonstrates using Optuna instead of grid search
+# Hyperparameter ranges still come from config!
+
+experiment:
+  name: "optuna_optimization_test"
+  mode: "grid"
+  n_replications: 20
+  parallel: true
+  single_thread: false
+  n_workers: 4
+  random_seed: 123
+  output_dir: "results/optuna_test"
+  quick_test: false
+  
+  model_names: ["Poisson", "PoissonKL"]
+  optimization_method: "optuna"  # Using Optuna instead of grid search
+  optimize_metric: "composite_score"
+  optuna_n_trials: 100  # 100 trials per replication
+
+# Hyperparameter search space for Optuna
+# These define the min/max ranges - Optuna samples within them
+hyperparameter_grid:
+  n_states_values: [2, 3, 4]  # Categorical choices
+  
+  # Optuna will sample log-uniformly in this range
+  jump_penalty_min: 0.1
+  jump_penalty_max: 100.0
+  jump_penalty_scale: "log"
+  
+  # Optuna will sample kappa uniformly, then square for max_feats
+  kappa_min: 1.0
+  kappa_max_type: "sqrt_P"
+  
+  # These are ignored for Optuna (only used for grid search)
+  jump_penalty_num: 7
+  kappa_num: 14
+  quick_test: false
+
+# Smaller data grid for faster testing
+data_grid:
+  n_total_features_values: [30, 60, 150]
+  delta_values: [0.1, 0.2, 0.5]
+  distribution_types: ["Poisson"]
+  correlated_noise_values: [false]
+  correlated_noise_distributions: ["Poisson"]
+  
+  n_samples: 500
+  n_states: 3
+  n_informative: 15
+  lambda_0: 10.0
+  persistence: 0.97
+  noise_correlation: 0.1
+  nb_dispersion: 2.0
+  base_seed: 999
+  quick_test: false
+
+visualization:
+  enabled: false

@@ -1,3 +1,15 @@
+# Poisson Jump Simulations specific
+results/
+configs/*.yaml
+!configs/examples/
+!configs/schema.yaml
+*.csv
+*.json
+*simulation_old/*
+*visualize_old/*
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

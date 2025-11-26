@@ -1,0 +1,77 @@
+# Example Experiment Configuration
+# This demonstrates the config-driven hyperparameter approach
+# NO VALUES are hardcoded in the code - everything comes from this config!
+
+experiment:
+  name: "quick_test_experiment"
+  mode: "grid"  # "single" or "grid"
+  n_replications: 5
+  parallel: true
+  single_thread: false
+  n_workers: null  # null = use all CPUs
+  random_seed: 42
+  output_dir: "results/quick_test"
+  quick_test: true  # Applies to both hyperparameter and data grids
+  
+  # Model names to run
+  model_names: ["Gaussian", "Poisson", "PoissonKL"]
+  
+  # Optimization method
+  optimization_method: "grid"  # "grid" or "optuna"
+  optimize_metric: "balanced_accuracy"  # "balanced_accuracy", "composite_score", "breakpoint_f1"
+  optuna_n_trials: 50  # Only used if optimization_method = "optuna"
+
+# Hyperparameter grid configuration
+# All values are specified here - nothing hardcoded!
+hyperparameter_grid:
+  # Number of hidden states to try
+  n_states_values: [2, 3, 4]
+  
+  # Jump penalty (lambda) configuration
+  jump_penalty_min: 0.1
+  jump_penalty_max: 100.0
+  jump_penalty_num: 7  # Number of log-spaced values in full grid
+  jump_penalty_scale: "log"  # "log" or "linear"
+  
+  # Feature selection (kappa) configuration
+  kappa_min: 1.0
+  kappa_max_type: "sqrt_P"  # "sqrt_P", "P", or "fixed"
+  kappa_max_fixed: null  # Only used if kappa_max_type = "fixed"
+  kappa_num: 14  # Number of linearly-spaced values in full grid
+  
+  # Quick test mode (overrides above with min/center/max only)
+  quick_test: true  # Set to false for full grid
+
+# Data generation grid configuration
+# All values specified here - nothing hardcoded!
+data_grid:
+  # Feature counts to test
+  n_total_features_values: [15, 30, 60, 150, 300]
+  
+  # Effect sizes to test
+  delta_values: [0.05, 0.1, 0.2, 0.5]
+  
+  # Distribution types
+  distribution_types: ["Poisson", "NegativeBinomial"]
+  
+  # Correlated noise settings
+  correlated_noise_values: [false, true]
+  correlated_noise_distributions: ["Poisson"]  # Only test with these distributions
+  
+  # Fixed parameters (same across all grid points)
+  n_samples: 500
+  n_states: 3
+  n_informative: 15
+  lambda_0: 10.0
+  persistence: 0.97
+  noise_correlation: 0.1
+  nb_dispersion: 2.0
+  base_seed: 42
+  
+  # Quick test mode (uses first/middle/last values only)
+  quick_test: true  # Set to false for full grid
+
+# Visualization settings
+visualization:
+  enabled: false
+  plot_types: []

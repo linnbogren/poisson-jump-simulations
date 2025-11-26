@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "poisson-jump-simulations"
+version = "0.1.0"
+description = "Simulation studies for sparse Poisson jump models"
+authors = ["Linn Bogren"]
+readme = "README.md"
+packages = [
+    { include = "simulation_old" },
+    { include = "simulation" },
+    { include = "visualization" },
+    { include = "experiments" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^1.24.0"
+pandas = "^2.0.0"
+scipy = "^1.11.0"
+scikit-learn = "^1.3.0"
+matplotlib = "^3.7.0"
+seaborn = "^0.13.2"
+tqdm = "^4.67.1"
+optuna = "^4.1.0"
+pyyaml = "^6.0"
+jumpmodels = {path = "../jump-models", develop = true}
+pytest = "^8.0"
+parquet = "^1.3.1"
+
+[tool.poetry.scripts]
+run-simulation = "experiments.run_simulation:main"
+analyze-results = "experiments.analyze_results:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
