@@ -1,5 +1,21 @@
-"""Simulation package for Poisson Jump Models."""
+"""
+Simplified simulation API for Sparse Jump Model experiments.
 
+Quick Start
+-----------
+>>> from simulation import run_simulation
+>>> 
+>>> config = {
+>>>     'name': 'my_experiment',
+>>>     'data_configs': [{'delta': 0.1}, {'delta': 0.2}],
+>>>     'n_replications': 10,
+>>> }
+>>> 
+>>> results = run_simulation(config, cache=True)
+>>> results.summary()
+"""
+
+# Legacy API (still available for advanced users)
 from .config import (
     SimulationConfig,
     ReplicationResult,
@@ -12,6 +28,15 @@ from .config import (
     save_config,
     validate_config
 )
+
+# Import advanced runner function
+from .runner import run_simulation as run_simulation_advanced
+
+# Import ResultManager
+from .results import ResultManager
+
+# New simplified API (recommended - imported last to take precedence)
+from .api import run_simulation, SimulationResults
 
 from .data_generation import (
     generate_hmm_transition_matrix,
@@ -52,7 +77,6 @@ from .models import (
 )
 
 from .runner import (
-    run_simulation,
     run_single_replication_grid,
     run_single_replication_optuna,
     select_best_models
@@ -68,17 +92,27 @@ from .results import (
 )
 
 __all__ = [
-    # Config classes and functions
+    # Simplified API (recommended)
+    'run_simulation',
+    'SimulationResults',
+    
+    # Configuration classes
     'SimulationConfig',
-    'ReplicationResult',
-    'GridSearchResult',
-    'ModelConfig',
+    'ExperimentConfig',
     'HyperparameterGridConfig',
     'DataGridConfig',
-    'ExperimentConfig',
     'load_config',
     'save_config',
     'validate_config',
+    
+    # Legacy advanced API
+    'run_simulation_advanced',  # Alias for runner.run_simulation
+    'ResultManager',
+    
+    # Result classes
+    'ReplicationResult',
+    'GridSearchResult',
+    'ModelConfig',
     # Data generation functions
     'generate_hmm_transition_matrix',
     'compute_state_lambdas',
@@ -110,7 +144,6 @@ __all__ = [
     'results_to_grid_search_result',
     'grid_results_to_dataframe',
     # Runner functions
-    'run_simulation',
     'run_single_replication_grid',
     'run_single_replication_optuna',
     'select_best_models',

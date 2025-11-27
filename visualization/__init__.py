@@ -1,12 +1,17 @@
-"""Visualization package for Poisson Jump simulations.
-
-This package provides comprehensive visualization tools for analyzing
-simulation results, including:
-- Time series and state sequence visualizations
-- Model performance comparisons
-- Parameter sensitivity analyses
-- Result aggregation and distribution plots
 """
+Visualization tools for Sparse Jump Model experiments.
+
+Quick Start
+-----------
+>>> from simulation import run_simulation
+>>> from visualization import visualize_results
+>>> 
+>>> results = run_simulation(config)
+>>> visualize_results(results)
+"""
+
+# Simplified API (recommended)
+from .api import visualize_results, compare_optimization_methods
 
 # Import utility functions
 from .utils import (
@@ -55,6 +60,9 @@ from .experiment_plots import (
 )
 
 __all__ = [
+    # Simplified API (recommended)
+    'visualize_results',
+    
     # Utilities
     'setup_plotting_style',
     'get_state_colors',

@@ -198,6 +198,7 @@ class ExperimentConfig:
     optimize_metric: str = "balanced_accuracy"  # Metric to optimize
     hyperparameter_grid: Optional[HyperparameterGridConfig] = None
     optuna_n_trials: int = 100  # For Optuna optimization
+    optuna_n_jobs: int = -1  # Parallel trials for Optuna (1=sequential, -1=all cores)
     
     # Quick test mode (applies to both hyperparameter and data grids)
     quick_test: bool = False
@@ -296,6 +297,7 @@ def load_config(yaml_path: Union[str, Path]) -> ExperimentConfig:
         optimize_metric=exp_config.get('optimize_metric', 'balanced_accuracy'),
         hyperparameter_grid=hyperparam_grid_obj,
         optuna_n_trials=exp_config.get('optuna_n_trials', 100),
+        optuna_n_jobs=exp_config.get('optuna_n_jobs', 1),
         quick_test=exp_config.get('quick_test', False),
         visualization=viz_config
     )
@@ -363,3 +365,199 @@ def validate_config(config: ExperimentConfig) -> List[str]:
             messages.append("WARNING: Visualization enabled but no plot_types specified")
     
     return messages
+
+
+###############################################################################
+# Simplified API Helper Functions
+###############################################################################
+
+def apply_defaults(config: Dict) -> Dict:
+    """
+    Apply default values to simplified config dict.
+    
+    Parameters
+    ----------
+    config : dict
+        User-provided configuration
+        
+    Returns
+    -------
+    dict
+        Configuration with defaults applied
+        
+    Default Values
+    --------------
+    - models: ['Gaussian', 'Poisson', 'PoissonKL']
+    - n_replications: 10
+    - n_jobs: -1 (all cores)
+    - optimization: 'grid'
+    - optimize_metric: 'balanced_accuracy'
+    - quick_test: False
+    - optuna_n_trials: 20 (for Optuna optimization)
+    - hyperparameter_grid: HyperparameterGridConfig() (with defaults)
+    
+    For data_configs:
+    - n_samples: 200
+    - n_states: 3
+    - n_informative: 15
+    - n_total_features: 15
+    - lambda_0: 10.0
+    - persistence: 0.97
+    - distribution_type: 'Poisson'
+    - correlated_noise: False
+    - random_seed: 42
+    """
+    from copy import deepcopy
+    
+    config = deepcopy(config)
+    
+    # Top-level defaults
+    config.setdefault('models', ['Gaussian', 'Poisson', 'PoissonKL'])
+    config.setdefault('n_replications', 2)
+    config.setdefault('n_jobs', -1)
+    config.setdefault('optimization', 'grid')
+    config.setdefault('optimize_metric', 'composite_score')
+    config.setdefault('quick_test', True)  # Use small grid by default
+    config.setdefault('optuna_n_trials', 20)  # Reasonable default for Optuna
+    
+    # Data config defaults
+    data_defaults = {
+        'n_samples': 200,
+        'n_states': 3,
+        'n_informative': 15,
+        'n_total_features': 15,
+        'lambda_0': 10.0,
+        'persistence': 0.97,
+        'distribution_type': 'Poisson',
+        'correlated_noise': False,
+        'random_seed': 42,
+    }
+    
+    for i, data_cfg in enumerate(config.get('data_configs', [])):
+        for key, default_val in data_defaults.items():
+            data_cfg.setdefault(key, default_val)
+    
+    # Hyperparameter grid defaults
+    if 'hyperparameter_grid' not in config:
+        config['hyperparameter_grid'] = {}
+    
+    return config
+
+
+def dict_to_experiment_config(config: Dict) -> tuple[ExperimentConfig, list]:
+    """
+    Convert simplified dict config to ExperimentConfig.
+    
+    Parameters
+    ----------
+    config : dict
+        Simplified configuration with keys:
+        - name: str (required)
+        - data_configs: List[Dict] (required)
+        - models: List[str]
+        - n_replications: int
+        - hyperparameter_grid: Dict
+        - n_jobs: int
+        - optimization: str
+        - optimize_metric: str
+        
+    Returns
+    -------
+    tuple[ExperimentConfig, list[SimulationConfig]]
+        Fully configured experiment object and list of simulation configs
+    """
+    # Apply defaults
+    config = apply_defaults(config)
+    
+    # Validate required fields
+    if 'name' not in config:
+        raise ValueError("config must include 'name'")
+    if 'data_configs' not in config or not config['data_configs']:
+        raise ValueError("config must include non-empty 'data_configs'")
+    
+    # Create simulation configs
+    sim_configs = [SimulationConfig(**dc) for dc in config['data_configs']]
+    
+    # Create hyperparameter grid config
+    hyperparam_cfg = HyperparameterGridConfig(
+        **config.get('hyperparameter_grid', {}),
+        quick_test=config.get('quick_test', False)
+    )
+    
+    # Determine mode
+    mode = 'grid' if len(sim_configs) > 1 else 'single'
+    
+    # For grid mode, create a minimal data_grid config (won't be used, but required by validation)
+    data_grid_cfg = None
+    if mode == 'grid':
+        data_grid_cfg = DataGridConfig(quick_test=config.get('quick_test', False))
+    
+    # Create experiment config
+    exp_config = ExperimentConfig(
+        name=config['name'],
+        mode=mode,
+        n_replications=config['n_replications'],
+        parallel=(config['n_jobs'] != 1),
+        single_thread=(config['n_jobs'] == 1),
+        n_workers=None if config['n_jobs'] == -1 else abs(config['n_jobs']),
+        model_names=config['models'],
+        optimization_method=config['optimization'],
+        optimize_metric=config['optimize_metric'],
+        hyperparameter_grid=hyperparam_cfg,
+        data=sim_configs[0] if mode == 'single' else None,
+        data_grid=data_grid_cfg,
+        output_dir='results',
+    )
+    
+    return exp_config, sim_configs
+
+
+def normalize_config_for_hashing(config: Dict) -> Dict:
+    """
+    Normalize config for deterministic hashing.
+    
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary
+        
+    Returns
+    -------
+    dict
+        Normalized configuration
+        
+    Normalization Steps
+    -------------------
+    - Sort all lists and dict keys
+    - Remove None values
+    - Round floats to 6 decimal places
+    - Convert all strings to lowercase
+    - Remove fields that don't affect results (n_jobs, output paths, etc.)
+    """
+    from copy import deepcopy
+    import json
+    
+    config = deepcopy(config)
+    
+    # Fields to exclude from hash (don't affect results)
+    exclude_fields = {'n_jobs', 'output_dir', 'verbose'}
+    
+    def normalize_value(val):
+        if val is None:
+            return None
+        elif isinstance(val, float):
+            return round(val, 6)
+        elif isinstance(val, str):
+            return val.lower()
+        elif isinstance(val, list):
+            return sorted([normalize_value(v) for v in val], key=str)
+        elif isinstance(val, dict):
+            return {k: normalize_value(v) for k, v in sorted(val.items())
+                    if k not in exclude_fields and v is not None}
+        else:
+            return val
+    
+    normalized = normalize_value(config)
+    
+    # Convert to JSON string for consistent representation
+    return json.loads(json.dumps(normalized, sort_keys=True))

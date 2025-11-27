@@ -16,8 +16,12 @@ import numpy as np
 import optuna
 from typing import List, Dict, Callable, Optional
 from itertools import product
+import logging
 
 from .config import SimulationConfig, HyperparameterGridConfig, DataGridConfig
+
+# Suppress Optuna's verbose logging
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 ###############################################################################
@@ -234,7 +238,8 @@ def create_optuna_study(
     n_total_features: int,
     n_trials: int = 100,
     seed: Optional[int] = None,
-    direction: str = 'maximize'
+    direction: str = 'maximize',
+    n_jobs: int = 1
 ) -> optuna.Study:
     """
     Create and run an Optuna study for hyperparameter optimization.
@@ -255,18 +260,27 @@ def create_optuna_study(
         Random seed
     direction : str, default='maximize'
         'maximize' or 'minimize'
+    n_jobs : int, default=1
+        Number of parallel jobs for trials. 1 for sequential, -1 for all cores.
+        Setting >1 enables parallel trial evaluation for faster optimization.
     
     Returns
     -------
     optuna.Study
         Completed study with optimization results
+        
+    Notes
+    -----
+    Parallel trials (n_jobs > 1) can significantly speed up optimization when
+    you have few replications. For example, with n_jobs=4, 4 trials run
+    simultaneously, potentially giving ~4x speedup.
     """
     # Create study with TPE sampler
     sampler = optuna.samplers.TPESampler(seed=seed) if seed is not None else optuna.samplers.TPESampler()
     study = optuna.create_study(direction=direction, sampler=sampler)
     
-    # Run optimization
-    study.optimize(objective_fn, n_trials=n_trials)
+    # Run optimization with parallel trials if requested
+    study.optimize(objective_fn, n_trials=n_trials, n_jobs=n_jobs)
     
     return study
 
@@ -300,13 +314,14 @@ def suggest_hyperparameters(
     
     # Jump penalty
     if grid_config.jump_penalty_scale == "log":
-        jump_penalty = trial.suggest_loguniform(
+        jump_penalty = trial.suggest_float(
             'jump_penalty',
             grid_config.jump_penalty_min,
-            grid_config.jump_penalty_max
+            grid_config.jump_penalty_max,
+            log=True
         )
     else:
-        jump_penalty = trial.suggest_uniform(
+        jump_penalty = trial.suggest_float(
             'jump_penalty',
             grid_config.jump_penalty_min,
             grid_config.jump_penalty_max

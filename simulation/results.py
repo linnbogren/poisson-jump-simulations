@@ -549,11 +549,10 @@ def save_experiment_metadata(
         }
     
     # Add optuna info if applicable
-    if experiment_config.optimization_method == "optuna" and experiment_config.optuna_config:
+    if experiment_config.optimization_method == "optuna":
         metadata['optuna'] = {
-            'n_trials': experiment_config.optuna_config.n_trials,
-            'direction': experiment_config.optuna_config.direction,
-            'metric': experiment_config.optuna_config.metric
+            'n_trials': experiment_config.optuna_n_trials,
+            'metric': experiment_config.optimize_metric
         }
     
     # Add Python environment info

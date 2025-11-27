@@ -135,14 +135,14 @@ def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
     Parameters
     ----------
     args : Tuple
-        (config, n_trials, n_total_features, model_names, optimize_metric, grid_config)
+        (config, n_trials, n_total_features, model_names, optimize_metric, grid_config, n_jobs)
     
     Returns
     -------
     List[GridSearchResult]
         Best results for each model type from Optuna optimization
     """
-    config, n_trials, n_total_features, model_names, optimize_metric, grid_config = args
+    config, n_trials, n_total_features, model_names, optimize_metric, grid_config, optuna_n_jobs = args
     
     # Suppress warnings
     # TODO: Re-enable warnings after testing
@@ -176,14 +176,15 @@ def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
                     f"Available metrics: {list(result.keys())}"
                 )
         
-        # Run Optuna optimization
+        # Run Optuna optimization with parallel trials
         study = create_optuna_study(
             objective,
             grid_config=grid_config,
             n_total_features=n_total_features,
             n_trials=n_trials,
             seed=config.random_seed,
-            direction='maximize'
+            direction='maximize',
+            n_jobs=optuna_n_jobs
         )
         
         # Re-evaluate best trial to get full results
@@ -339,7 +340,8 @@ def run_simulation(
                     data_config.n_total_features,
                     experiment_config.model_names,
                     experiment_config.optimize_metric,
-                    experiment_config.hyperparameter_grid
+                    experiment_config.hyperparameter_grid,
+                    experiment_config.optuna_n_jobs
                 )
             
             all_tasks.append(task)
