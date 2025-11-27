@@ -7,7 +7,7 @@ and breakpoint detection results.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Optional, Dict, List, Union, Any
+from typing import Optional, Dict, List, Union, Any, Tuple
 from pathlib import Path
 
 from .utils import (
@@ -259,6 +259,8 @@ def plot_stacked_states(
     - Top panels: Time series data (one or more features)
     - Subsequent panels: State assignments from different models as horizontal bars
     
+    Model labels are automatically permuted to best align with true states if provided.
+    
     Parameters
     ----------
     X : pd.DataFrame
@@ -289,6 +291,17 @@ def plot_stacked_states(
     >>> fig = plot_stacked_states(X, models, true_states=states, 
     ...                           feature_to_plot='feature_0')
     """
+    # Import the BAC permutation function from metrics module
+    import sys
+    from pathlib import Path
+    
+    # Add parent directory to path to allow absolute import
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    
+    from simulation.metrics import compute_bac_best_permutation
+    
     # Determine features to plot
     if feature_to_plot is None:
         features = X.columns.tolist()
@@ -360,16 +373,35 @@ def plot_stacked_states(
         ax.spines['left'].set_visible(True)
         ax.tick_params(left=True, labelsize=8)
     
-    # Plot true states if provided
+    # Get true states as numpy array
+    true_states_array = None
     if true_states is not None:
+        true_states_array = true_states.to_numpy() if hasattr(true_states, 'to_numpy') else np.array(true_states)
+    
+    # Plot true states if provided
+    if true_states_array is not None:
         ax = axes[panel_idx]
-        plot_state_bars(ax, true_states, 'True\nStates')
+        plot_state_bars(ax, true_states_array, 'True\nStates')
         panel_idx += 1
     
-    # Plot model predictions
+    # Plot model predictions with best permutation
     for model_name, model in models_dict.items():
         ax = axes[panel_idx]
-        plot_state_bars(ax, model.labels_, model_name)
+        
+        # Get model labels
+        model_labels = model.labels_.to_numpy() if hasattr(model.labels_, 'to_numpy') else np.array(model.labels_)
+        
+        # If true states are available, find best permutation
+        if true_states_array is not None:
+            _, permuted_labels = compute_bac_best_permutation(
+                true_states_array, 
+                model_labels,
+                return_permuted=True
+            )
+            plot_state_bars(ax, permuted_labels, model_name)
+        else:
+            plot_state_bars(ax, model_labels, model_name)
+        
         panel_idx += 1
     
     # Set x-axis label

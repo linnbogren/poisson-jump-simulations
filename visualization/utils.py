@@ -28,6 +28,9 @@ MODEL_COLORS = {
     'SparseJumpGaussian': '#3498db',     # Blue
     'JumpPoisson': '#e74c3c',            # Red
     'JumpGaussian': '#f39c12',           # Orange
+    'Gaussian': '#3498db',               # Blue
+    'Poisson': '#2ecc71',                # Green
+    'PoissonKL': '#e74c3c',              # Red
     'True': '#000000',                   # Black for ground truth
 }
 

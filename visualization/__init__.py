@@ -48,6 +48,12 @@ from .results import (
     plot_aggregated_results_overview,
 )
 
+# Import experiment visualization tools
+from .experiment_plots import (
+    ExperimentVisualizer,
+    create_experiment_visualizations,
+)
+
 __all__ = [
     # Utilities
     'setup_plotting_style',

@@ -365,6 +365,122 @@ class ResultManager:
         comparison = comparison.sort_values('mean', ascending=False)
         
         return comparison
+    
+    def load_data_for_config(self, config_id: int = 0) -> Tuple:
+        """
+        Regenerate data for a specific configuration.
+        
+        Parameters
+        ----------
+        config_id : int, default=0
+            Index of the data configuration to regenerate.
+            
+        Returns
+        -------
+        tuple
+            (X, states, breakpoints) - Generated data, true states, and breakpoints
+            
+        Examples
+        --------
+        >>> manager = ResultManager("results/my_experiment")
+        >>> X, states, breakpoints = manager.load_data_for_config(0)
+        """
+        from .config import SimulationConfig
+        from .data_generation import generate_data
+        
+        # Use aggregated results to get complete configuration
+        best_results = self.load_best_results()
+        
+        if config_id >= len(best_results):
+            raise ValueError(f"Config ID {config_id} out of range (max: {len(best_results)-1})")
+        
+        config_row = best_results.iloc[config_id]
+        
+        # Extract parameters (with defaults for missing columns)
+        data_config_params = {
+            'n_samples': int(config_row['n_samples']),
+            'n_states': int(config_row['n_states']),
+            'n_informative': int(config_row['n_informative']),
+            'n_noise': int(config_row.get('n_noise', 0)),
+            'n_total_features': int(config_row['n_total_features']),
+            'delta': float(config_row['delta']),
+            'lambda_0': float(config_row['lambda_0']),
+            'persistence': float(config_row.get('persistence', 0.95)),
+            'distribution_type': str(config_row['distribution_type']),
+            'correlated_noise': bool(config_row.get('correlated_noise', False)),
+            'random_seed': int(config_row['random_seed']),
+        }
+        
+        # Generate data
+        sim_config = SimulationConfig(**data_config_params)
+        X, states, breakpoints = generate_data(sim_config)
+        
+        return X, states, breakpoints
+    
+    def load_models_for_visualization(
+        self, 
+        seed: Optional[int] = None,
+        delta: Optional[float] = None,
+        model_names: Optional[List[str]] = None
+    ) -> Dict:
+        """
+        Load saved models for visualization.
+        
+        Parameters
+        ----------
+        seed : int, optional
+            Random seed to filter by. If None, uses first available.
+        delta : float, optional
+            Delta value to filter by. If None, uses first available.
+        model_names : list of str, optional
+            Model names to load. If None, loads all available models.
+            
+        Returns
+        -------
+        dict
+            Dictionary of {model_name: fitted_model}
+            
+        Examples
+        --------
+        >>> manager = ResultManager("results/my_experiment")
+        >>> models = manager.load_models_for_visualization(seed=42, delta=0.07)
+        >>> for name, model in models.items():
+        ...     print(f"{name}: {model.n_components} components")
+        """
+        import pickle
+        
+        models_dir = self.results_dir / "models"
+        if not models_dir.exists():
+            return {}
+        
+        # Get defaults from best_results if not specified
+        if seed is None or delta is None or model_names is None:
+            best_results = self.load_best_results()
+            if seed is None:
+                seed = int(best_results.iloc[0]['random_seed'])
+            if delta is None:
+                delta = float(best_results.iloc[0]['delta'])
+            if model_names is None:
+                model_names = best_results['model_name'].unique().tolist()
+        
+        models_dict = {}
+        
+        for model_name in model_names:
+            # Find model file matching the pattern
+            # Format: model_{ModelName}_seed{seed}_P{persistence}_delta{delta}.pkl
+            pattern = f"model_{model_name}_seed{seed}_*_delta{delta}.pkl"
+            model_files = list(models_dir.glob(pattern))
+            
+            if model_files:
+                model_file = model_files[0]  # Should only be one match
+                try:
+                    with open(model_file, 'rb') as f:
+                        model = pickle.load(f)
+                    models_dict[model_name] = model
+                except Exception as e:
+                    print(f"Warning: Could not load model {model_file.name}: {e}")
+        
+        return models_dict
 
 
 def save_experiment_metadata(

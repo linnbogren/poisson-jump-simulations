@@ -435,7 +435,8 @@ def plot_aggregated_results_overview(
     ax2 = fig.add_subplot(gs[0, 1])
     unique_models = results_df[model_column].unique()
     palette = [get_model_color(m) for m in unique_models]
-    sns.violinplot(data=results_df, x=model_column, y=key_metrics[1], ax=ax2, palette=palette)
+    sns.violinplot(data=results_df, x=model_column, y=key_metrics[1], hue=model_column, 
+                   ax=ax2, palette=palette, legend=False)
     ax2.set_xlabel('Model', fontsize=10)
     ax2.set_ylabel(format_metric_name(key_metrics[1]), fontsize=10)
     ax2.set_title(format_metric_name(key_metrics[1]), fontsize=11, weight='bold')
@@ -444,7 +445,8 @@ def plot_aggregated_results_overview(
     
     # 3. Box plot for third metric
     ax3 = fig.add_subplot(gs[0, 2])
-    sns.boxplot(data=results_df, x=model_column, y=key_metrics[2], ax=ax3, palette=palette)
+    sns.boxplot(data=results_df, x=model_column, y=key_metrics[2], hue=model_column,
+                ax=ax3, palette=palette, legend=False)
     ax3.set_xlabel('Model', fontsize=10)
     ax3.set_ylabel(format_metric_name(key_metrics[2]), fontsize=10)
     ax3.set_title(format_metric_name(key_metrics[2]), fontsize=11, weight='bold')

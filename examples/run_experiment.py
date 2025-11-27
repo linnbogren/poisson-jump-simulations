@@ -23,16 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from simulation.config import SimulationConfig, ExperimentConfig, HyperparameterGridConfig
 from simulation.runner import run_simulation
 from simulation.results import ResultManager
-from visualization import (
-    plot_model_comparison_bars,
-    plot_parameter_sensitivity,
-    plot_metric_comparison_grid,
-    plot_aggregated_results_overview,
-    plot_correlation_matrix,
-    plot_time_series_with_breakpoints,
-    plot_stacked_states,
-    setup_plotting_style,
-)
+from visualization import create_experiment_visualizations
 
 
 ###############################################################################
@@ -139,232 +130,6 @@ VISUALIZATION_CONFIG = {
 # MAIN EXECUTION
 ###############################################################################
 
-def create_visualizations(results_path: Path, config: dict):
-    """Create all visualizations for the experiment results."""
-    
-    print("\n" + "="*80)
-    print("Creating Visualizations")
-    print("="*80)
-    
-    # Setup plotting style
-    setup_plotting_style()
-    
-    # Load results
-    manager = ResultManager(results_path)
-    best_results = manager.load_best_results()
-    grid_results = manager.load_grid_results()
-    
-    # Create plots directory
-    plots_dir = results_path / "plots"
-    plots_dir.mkdir(exist_ok=True)
-    
-    viz_config = VISUALIZATION_CONFIG
-    
-    # 1. Model comparison plots
-    if viz_config['create_comparison_plots']:
-        print("\n" + "-"*80)
-        print("Creating model comparison plots...")
-        print("-"*80)
-        
-        for metric in viz_config['comparison_metrics']:
-            if metric in best_results.columns:
-                try:
-                    fig = plot_model_comparison_bars(
-                        best_results,
-                        metric=metric,
-                        title=f'Model Performance: {metric.replace("_", " ").title()}'
-                    )
-                    filename = f"comparison_{metric}.png"
-                    fig.savefig(plots_dir / filename, dpi=viz_config['dpi'], bbox_inches='tight')
-                    print(f"  ✓ Saved: {filename}")
-                    plt.close(fig)
-                except Exception as e:
-                    print(f"  ✗ Error creating {metric} comparison: {e}")
-    
-    # 2. Aggregated overview plot
-    if viz_config['create_overview_plot']:
-        print("\n" + "-"*80)
-        print("Creating overview plot...")
-        print("-"*80)
-        
-        try:
-            fig = plot_aggregated_results_overview(
-                best_results,
-                key_metrics=['balanced_accuracy', 'feature_f1', 'chamfer_distance'],
-                figsize=viz_config['figsize_large']
-            )
-            fig.savefig(plots_dir / "overview.png", dpi=viz_config['dpi'], bbox_inches='tight')
-            print("  ✓ Saved: overview.png")
-            plt.close(fig)
-        except Exception as e:
-            print(f"  ✗ Error creating overview: {e}")
-    
-    # 3. Correlation matrix
-    if viz_config['create_correlation_matrix']:
-        print("\n" + "-"*80)
-        print("Creating correlation matrix...")
-        print("-"*80)
-        
-        try:
-            metric_cols = [col for col in best_results.columns 
-                          if col not in ['n_samples', 'n_states', 'n_informative', 'n_noise',
-                                        'n_total_features', 'delta', 'lambda_0', 'persistence',
-                                        'distribution_type', 'correlated_noise', 'random_seed',
-                                        'model_name', 'best_n_components', 'best_jump_penalty',
-                                        'best_max_feats']]
-            
-            fig = plot_correlation_matrix(
-                best_results[metric_cols],
-                title='Metric Correlations',
-                figsize=viz_config['figsize_large']
-            )
-            fig.savefig(plots_dir / "correlation_matrix.png", dpi=viz_config['dpi'], bbox_inches='tight')
-            print("  ✓ Saved: correlation_matrix.png")
-            plt.close(fig)
-        except Exception as e:
-            print(f"  ✗ Error creating correlation matrix: {e}")
-    
-    # 4. Parameter sensitivity plots
-    if viz_config['create_comparison_plots'] and len(config['data_configs']) > 1:
-        print("\n" + "-"*80)
-        print("Creating parameter sensitivity plots...")
-        print("-"*80)
-        
-        # Plot how performance varies with delta (jump rate)
-        if 'delta' in best_results.columns:
-            try:
-                fig = plot_parameter_sensitivity(
-                    best_results,
-                    parameter='delta',
-                    metric='balanced_accuracy',
-                    title='Performance vs Jump Rate (delta)'
-                )
-                fig.savefig(plots_dir / "sensitivity_delta.png", dpi=viz_config['dpi'], bbox_inches='tight')
-                print("  ✓ Saved: sensitivity_delta.png")
-                plt.close(fig)
-            except Exception as e:
-                print(f"  ✗ Error creating delta sensitivity: {e}")
-        
-        # Plot how performance varies with distribution type
-        if 'distribution_type' in best_results.columns:
-            try:
-                fig = plot_parameter_sensitivity(
-                    best_results,
-                    parameter='distribution_type',
-                    metric='balanced_accuracy',
-                    title='Performance vs Distribution Type'
-                )
-                fig.savefig(plots_dir / "sensitivity_distribution.png", dpi=viz_config['dpi'], bbox_inches='tight')
-                print("  ✓ Saved: sensitivity_distribution.png")
-                plt.close(fig)
-            except Exception as e:
-                print(f"  ✗ Error creating distribution sensitivity: {e}")
-    
-    # 5. Stacked time series visualization
-    if viz_config['create_time_series'] and config['save_models']:
-        print("\n" + "-"*80)
-        print("Creating stacked time series visualization...")
-        print("-"*80)
-        
-        models_dir = results_path / "models"
-        if models_dir.exists() and list(models_dir.glob("*.pkl")):
-            try:
-                import pickle
-                from simulation.data_generation import generate_data
-                from simulation.models import GaussianJumpModel, PoissonJumpModel, PoissonKLJumpModel
-                
-                # Get best hyperparameters for each model from the first data configuration
-                first_config_results = best_results.iloc[0]
-                data_config_params = {
-                    'n_samples': int(first_config_results['n_samples']),
-                    'n_states': int(first_config_results['n_states']),
-                    'n_informative': int(first_config_results['n_informative']),
-                    'n_noise': int(first_config_results['n_noise']),
-                    'n_total_features': int(first_config_results['n_total_features']),
-                    'delta': float(first_config_results['delta']),
-                    'lambda_0': float(first_config_results['lambda_0']),
-                    'persistence': float(first_config_results['persistence']),
-                    'distribution_type': str(first_config_results['distribution_type']),
-                    'correlated_noise': bool(first_config_results['correlated_noise']),
-                    'random_seed': int(first_config_results['random_seed']),
-                }
-                
-                # Regenerate data (same for all models)
-                sim_config = SimulationConfig(**data_config_params)
-                X, states, breakpoints = generate_data(sim_config)
-                
-                # Refit models with best hyperparameters
-                models_dict = {}
-                
-                for model_name in best_results['model_name'].unique():
-                    # Get best hyperparameters for this model
-                    model_best = best_results[best_results['model_name'] == model_name].iloc[0]
-                    
-                    n_components = int(model_best['best_n_components'])
-                    jump_penalty = float(model_best['best_jump_penalty'])
-                    
-                    # Create and fit model with best hyperparameters
-                    if model_name == 'Gaussian':
-                        model = GaussianJumpModel(
-                            n_components=n_components,
-                            jump_penalty=jump_penalty,
-                            random_state=42
-                        )
-                    elif model_name == 'Poisson':
-                        model = PoissonJumpModel(
-                            n_components=n_components,
-                            jump_penalty=jump_penalty,
-                            random_state=42
-                        )
-                    elif model_name == 'PoissonKL':
-                        model = PoissonKLJumpModel(
-                            n_components=n_components,
-                            jump_penalty=jump_penalty,
-                            random_state=42
-                        )
-                    else:
-                        print(f"  ⚠ Unknown model: {model_name}, skipping...")
-                        continue
-                    
-                    # Fit the model
-                    model.fit(X)
-                    models_dict[model_name] = model
-                    print(f"  • Fitted {model_name} with n_components={n_components}, jump_penalty={jump_penalty}")
-                
-                if models_dict:
-                    # Select first informative feature
-                    informative_cols = [col for col in X.columns if col.startswith('informative_')]
-                    if informative_cols:
-                        feature_to_plot = informative_cols[0]
-                        
-                        # Create stacked plot
-                        fig = plot_stacked_states(
-                            X,
-                            models_dict,
-                            true_states=states,
-                            feature_to_plot=feature_to_plot,
-                            figsize=(14, 10)
-                        )
-                        
-                        filename = "timeseries_stacked_comparison.png"
-                        fig.savefig(plots_dir / filename, dpi=viz_config['dpi'], bbox_inches='tight')
-                        print(f"  ✓ Saved: {filename}")
-                        plt.close(fig)
-                else:
-                    print("  ⚠ No models fitted successfully.")
-                    
-            except Exception as e:
-                print(f"  ✗ Error creating stacked time series: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print("  ⚠ No saved models found. Skipping time series plots.")
-    
-    print("\n" + "="*80)
-    print(f"All plots saved to: {plots_dir}")
-    print("="*80)
-
-
 def main():
     """Run the full experiment."""
     
@@ -423,7 +188,7 @@ def main():
                 # Ask about recreating plots
                 response = input("Recreate plots? [y/N]: ")
                 if response.lower() == 'y':
-                    create_visualizations(out_dir, config)
+                    create_experiment_visualizations(out_dir, VISUALIZATION_CONFIG)
                     print("\n" + "="*80)
                     print("PLOTS RECREATED")
                     print("="*80)
@@ -544,7 +309,7 @@ def main():
         print(f"  Mean balanced accuracy: {results_df['balanced_accuracy'].mean():.4f}")
         
         # Create visualizations
-        create_visualizations(out_dir, config)
+        create_experiment_visualizations(out_dir, VISUALIZATION_CONFIG)
         
         # Final summary
         print("\n" + "="*80)
