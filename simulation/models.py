@@ -31,6 +31,7 @@ from .metrics import (
 )
 
 
+
 class ModelWrapper:
     """
     Wrapper class for Sparse Jump Models providing unified interface.
@@ -285,7 +286,9 @@ def fit_and_evaluate(
     config: SimulationConfig,
     model_name: str,
     hyperparameters: Dict[str, Any],
-    return_model: bool = False
+    return_model: bool = False,
+    trial_number: Optional[int] = None, # THESE TWO WERE REMOVED?
+    replication: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Fit a single model and evaluate it.
@@ -307,7 +310,10 @@ def fit_and_evaluate(
         Model hyperparameters (n_components, max_feats, jump_penalty)
     return_model : bool, default=False
         If True, include fitted model in returned dict
-    
+    trial_number : int, optional
+        Optuna trial number (for warning logging)
+    replication : int, optional
+        Replication number (for warning logging)
     Returns
     -------
     Dict[str, Any]
@@ -321,7 +327,16 @@ def fit_and_evaluate(
     ...     {'n_components': 3, 'max_feats': 10, 'jump_penalty': 1.0}
     ... )
     >>> print(results['balanced_accuracy'])
+     >>> print(f"Warnings: {len(results['warning_capture'].warnings)}") # THIS AND THE CONFIGURATION WAS REMOVED
     """
+    # Prepare data config for warning logging
+    data_config_dict = {
+        'delta': config.delta,
+        'n_samples': config.n_samples,
+        'n_states': config.n_states,
+        'n_informative': config.n_informative,
+        'n_total_features': config.n_total_features,
+    }
     try:
         # Create and fit model
         wrapper = ModelWrapper(

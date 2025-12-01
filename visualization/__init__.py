@@ -13,6 +13,13 @@ Quick Start
 # Simplified API (recommended)
 from .api import visualize_results, compare_optimization_methods
 
+# Optuna-specific visualizations
+from .optuna_plots import (
+    plot_optuna_trials,
+    print_optuna_summary,
+    analyze_failed_trials,
+)
+
 # Import utility functions
 from .utils import (
     setup_plotting_style,

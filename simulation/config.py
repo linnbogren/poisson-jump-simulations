@@ -197,8 +197,9 @@ class ExperimentConfig:
     optimization_method: str = "grid"  # "grid" or "optuna"
     optimize_metric: str = "balanced_accuracy"  # Metric to optimize
     hyperparameter_grid: Optional[HyperparameterGridConfig] = None
-    optuna_n_trials: int = 100  # For Optuna optimization
+    optuna_n_trials: int = 20  # For Optuna optimization
     optuna_n_jobs: int = -1  # Parallel trials for Optuna (1=sequential, -1=all cores)
+    grid_n_jobs: int = -1  # Parallel hyperparameter search for Grid (1=sequential, -1=all cores)
     
     # Quick test mode (applies to both hyperparameter and data grids)
     quick_test: bool = False
@@ -296,8 +297,9 @@ def load_config(yaml_path: Union[str, Path]) -> ExperimentConfig:
         optimization_method=exp_config.get('optimization_method', 'grid'),
         optimize_metric=exp_config.get('optimize_metric', 'balanced_accuracy'),
         hyperparameter_grid=hyperparam_grid_obj,
-        optuna_n_trials=exp_config.get('optuna_n_trials', 100),
+        optuna_n_trials=exp_config.get('optuna_n_trials', 20),
         optuna_n_jobs=exp_config.get('optuna_n_jobs', 1),
+        grid_n_jobs=exp_config.get('grid_n_jobs', 1),
         quick_test=exp_config.get('quick_test', False),
         visualization=viz_config
     )
@@ -419,6 +421,8 @@ def apply_defaults(config: Dict) -> Dict:
     config.setdefault('optimize_metric', 'composite_score')
     config.setdefault('quick_test', True)  # Use small grid by default
     config.setdefault('optuna_n_trials', 20)  # Reasonable default for Optuna
+    config.setdefault('optuna_n_jobs', -1)  # Use all cores for parallel trials
+    config.setdefault('grid_n_jobs', -1)  # Use all cores for parallel hyperparameter search
     
     # Data config defaults
     data_defaults = {
@@ -504,6 +508,10 @@ def dict_to_experiment_config(config: Dict) -> tuple[ExperimentConfig, list]:
         optimization_method=config['optimization'],
         optimize_metric=config['optimize_metric'],
         hyperparameter_grid=hyperparam_cfg,
+        optuna_n_trials=config.get('optuna_n_trials', 20),
+        optuna_n_jobs=config.get('optuna_n_jobs', -1),
+        grid_n_jobs=config.get('grid_n_jobs', -1),
+        quick_test=config.get('quick_test', False),
         data=sim_configs[0] if mode == 'single' else None,
         data_grid=data_grid_cfg,
         output_dir='results',

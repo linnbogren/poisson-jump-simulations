@@ -275,6 +275,9 @@ def create_optuna_study(
     you have few replications. For example, with n_jobs=4, 4 trials run
     simultaneously, potentially giving ~4x speedup.
     """
+    # Suppress Optuna's verbose logging
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    
     # Create study with TPE sampler
     sampler = optuna.samplers.TPESampler(seed=seed) if seed is not None else optuna.samplers.TPESampler()
     study = optuna.create_study(direction=direction, sampler=sampler)

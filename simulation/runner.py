@@ -25,6 +25,8 @@ from multiprocessing import Pool, cpu_count
 from functools import partial
 from datetime import datetime
 import warnings
+from joblib import Parallel, delayed
+import logging
 
 from .config import SimulationConfig, GridSearchResult, ExperimentConfig
 from .data_generation import generate_data
@@ -59,7 +61,7 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
     Parameters
     ----------
     args : Tuple
-        (config, hyperparameter_grid, model_names, save_models, optimize_metric)
+        (config, hyperparameter_grid, model_names, save_models, optimize_metric, grid_n_jobs)
     
     Returns
     -------
@@ -67,12 +69,11 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
         Results for all models and hyperparameter combinations
         If save_models=True, returns (results, best_models_dict)
     """
-    config, hyperparameter_grid, model_names, save_models, optimize_metric = args
+    config, hyperparameter_grid, model_names, save_models, optimize_metric, grid_n_jobs = args
     
-    # Suppress sklearn warnings in worker processes
-    # TODO: Re-enable warnings after testing
-    # warnings.filterwarnings('ignore', message='y_pred contains classes not in y_true')
-    # warnings.filterwarnings('ignore', category=RuntimeWarning)
+    # Suppress division warnings in worker process
+    warnings.filterwarnings('ignore', message='invalid value encountered in divide')
+    warnings.filterwarnings('ignore', category=RuntimeWarning)
     
     # Generate data ONCE - all models use same data
     X, states, breakpoints = generate_data(config)
@@ -87,13 +88,34 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
         best_scores[model_name] = -1.0
         failed_convergence[model_name] = 0
         
-        # Grid search over hyperparameters
-        for params in hyperparameter_grid:
+        # Helper function for parallel execution
+        def fit_single_params(params):
+            """Fit model with single hyperparameter combination."""
             result = fit_and_evaluate(
                 X, states, config, model_name, params,
                 return_model=save_models
             )
-            
+            return result, params
+        
+        # Parallelize grid search if grid_n_jobs > 1
+        if grid_n_jobs == 1:
+            # Sequential execution (original behavior)
+            model_results = []
+            for params in hyperparameter_grid:
+                result = fit_and_evaluate(
+                    X, states, config, model_name, params,
+                    return_model=save_models
+                )
+                model_results.append((result, params))
+        else:
+            # Parallel execution across hyperparameters
+            model_results = Parallel(n_jobs=grid_n_jobs, backend='loky')(
+                delayed(fit_single_params)(params)
+                for params in hyperparameter_grid
+            )
+        
+        # Process results (same for both sequential and parallel)
+        for result, params in model_results:
             if not result.get('success', False):
                 # Track failure type
                 if result.get('convergence_failed', False):
@@ -144,9 +166,9 @@ def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
     """
     config, n_trials, n_total_features, model_names, optimize_metric, grid_config, optuna_n_jobs = args
     
-    # Suppress warnings
-    # TODO: Re-enable warnings after testing
-    # warnings.filterwarnings('ignore')
+    # Suppress division warnings in worker process
+    warnings.filterwarnings('ignore', message='invalid value encountered in divide')
+    warnings.filterwarnings('ignore', category=RuntimeWarning)
     
     # Generate data ONCE
     X, states, breakpoints = generate_data(config)
@@ -198,6 +220,9 @@ def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
         
         if best_result.get('success', False):
             grid_result = results_to_grid_search_result(best_result, config)
+            # Add trial information to the result
+            grid_result.trial_number = len(study.trials)
+            grid_result.study = study  # Store study for later analysis
             all_results.append(grid_result)
     
     return all_results
@@ -332,7 +357,7 @@ def run_simulation(
             
             if experiment_config.optimization_method == "grid":
                 task = (config, hyperparam_grid, experiment_config.model_names, 
-                       save_models, experiment_config.optimize_metric)
+                       save_models, experiment_config.optimize_metric, experiment_config.grid_n_jobs)
             else:  # Optuna
                 task = (
                     config,
@@ -479,7 +504,10 @@ def run_simulation(
                 #     if verbose:
                 #         print(f"\nError in task: {e}")
                 #     batch_idx += 1
-                #     continue
+                #     continue        # Print info about suppressed warnings
+        if verbose and experiment_config.optimization_method == "optuna":
+            print(f"\n💡 Note: Division warnings from extreme hyperparameter exploration were suppressed")
+            print(f"   (This is normal - Optuna tests boundary values during optimization)")
     
     # Aggregate results
     if verbose:
@@ -518,6 +546,45 @@ def run_simulation(
     # Combine all chunks
     grid_df = pd.concat(all_grid_dfs, ignore_index=True)
     del all_grid_dfs
+    
+    # Extract and save Optuna trial data if using Optuna
+    if experiment_config.optimization_method == "optuna":
+        if verbose:
+            print("Extracting Optuna trial data...")
+        
+        # Collect all Optuna studies from the batch results
+        optuna_trials_data = []
+        for batch_file in all_batch_files:
+            with open(batch_file, 'rb') as f:
+                batch_results = pickle.load(f)
+                for result in batch_results:
+                    if hasattr(result, 'study'):
+                        study = result.study
+                        # Extract trial data
+                        for trial in study.trials:
+                            trial_data = {
+                                'model_name': result.model_name,
+                                'trial_number': trial.number,
+                                'value': trial.value,
+                                'n_components': trial.params.get('n_components'),
+                                'jump_penalty': trial.params.get('jump_penalty'),
+                                'kappa': trial.params.get('kappa'),
+                                'state': trial.state.name,
+                                'duration': trial.duration.total_seconds() if trial.duration else None,
+                            }
+                            # Add configuration identifiers
+                            trial_data['delta'] = result.config.delta
+                            trial_data['n_states'] = result.config.n_states
+                            trial_data['random_seed'] = result.config.random_seed
+                            optuna_trials_data.append(trial_data)
+        
+        if optuna_trials_data:
+            optuna_trials_df = pd.DataFrame(optuna_trials_data)
+            optuna_trials_path = output_path / "grid_search" / "optuna_trials.csv"
+            optuna_trials_df.to_csv(optuna_trials_path, index=False)
+            
+            if verbose:
+                print(f"Saved {len(optuna_trials_df)} Optuna trials to optuna_trials.csv")
     
     if verbose:
         print(f"Total evaluations: {len(grid_df)}")

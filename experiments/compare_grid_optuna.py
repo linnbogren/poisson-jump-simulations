@@ -64,6 +64,7 @@ def main():
         **base_config,
         "experiment_name": "optimization_comparison_grid",
         "optimization": "grid",
+        "grid_n_jobs": -1,  # Parallelize hyperparameter search across all cores
         "hyperparameters": {
             "n_states_values": [2, 3, 4],
             "jump_penalty_min": 0.1,
@@ -79,6 +80,7 @@ def main():
     print(f"  n_states: {grid_config['hyperparameters']['n_states_values']}")
     print(f"  jump_penalty: {grid_config['hyperparameters']['jump_penalty_num']} values")
     print(f"  Total grid points: {len(grid_config['hyperparameters']['n_states_values']) * grid_config['hyperparameters']['jump_penalty_num']}")
+    print(f"  Parallel hyperparameter search: {grid_config['grid_n_jobs']} jobs")
     
     start_time = time.time()
     grid_results = run_simulation(grid_config, cache=False, verbose=True)
@@ -94,7 +96,7 @@ def main():
         "experiment_name": "optimization_comparison_optuna",
         "optimization": "optuna",
         "optuna_n_trials": 12,  # Trials per model (12 × 3 models = 36 trials per task)
-        "optuna_n_jobs": -1,  # Run 3 trials in parallel for faster optimization
+        "optuna_n_jobs": -1,  # Run trials in parallel for faster optimization
     }
     
     print("\n" + "=" * 80)
