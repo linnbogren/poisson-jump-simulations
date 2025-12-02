@@ -284,9 +284,26 @@ def run_simulation(
     # Record start time
     start_time = datetime.now()
     
-    # Setup
+    # Setup parallelization strategy
+    # If using parallel grid/optuna optimization, disable outer parallelization to avoid nesting
     n_workers = cpu_count() if n_jobs == -1 else min(n_jobs, cpu_count())
-    use_parallel = n_workers > 1 and not experiment_config.single_thread
+    
+    # Check if inner parallelization is enabled
+    has_inner_parallelization = (
+        (experiment_config.optimization_method == "grid" and experiment_config.grid_n_jobs != 1) or
+        (experiment_config.optimization_method == "optuna" and experiment_config.optuna_n_jobs != 1)
+    )
+    
+    # Disable outer parallelization if inner parallelization is active
+    if has_inner_parallelization and n_workers > 1:
+        if verbose:
+            print(f"⚠️  Parallel {experiment_config.optimization_method} optimization detected")
+            print(f"   Disabling replication-level parallelization to avoid nesting conflicts")
+            print(f"   → Hyperparameters will be searched in parallel instead")
+        use_parallel = False
+        n_workers = 1
+    else:
+        use_parallel = n_workers > 1 and not experiment_config.single_thread
     
     if verbose:
         print(f"{'='*80}")
@@ -296,6 +313,9 @@ def run_simulation(
         print(f"Execution: {'Parallel' if use_parallel else 'Sequential'}")
         if use_parallel:
             print(f"Workers: {n_workers}")
+        elif has_inner_parallelization:
+            jobs_param = experiment_config.grid_n_jobs if experiment_config.optimization_method == "grid" else experiment_config.optuna_n_jobs
+            print(f"Parallel {experiment_config.optimization_method} optimization: {jobs_param} jobs")
         print(f"Configurations: {len(data_configs)}")
         print(f"Models: {len(experiment_config.model_names)}")
         print(f"Replications: {experiment_config.n_replications}")
