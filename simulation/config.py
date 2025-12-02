@@ -95,6 +95,10 @@ class GridSearchResult:
     n_selected_noise: int
     n_selected_total: int
     computation_time: float
+    # Unsupervised metrics (for real data without ground truth)
+    bic: Optional[float] = None  # Bayesian Information Criterion (lower is better)
+    aic: Optional[float] = None  # Akaike Information Criterion (lower is better)
+    silhouette: Optional[float] = None  # Mean silhouette coefficient (higher is better)
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for storage."""

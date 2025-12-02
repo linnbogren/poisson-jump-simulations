@@ -93,6 +93,7 @@ class ExperimentVisualizer:
         self.create_comparison_plots()
         self.create_overview_plot()
         self.create_correlation_matrix()
+        self.create_unsupervised_metrics_plots()
         self.create_sensitivity_plots()
         self.create_stacked_time_series()
         
@@ -188,6 +189,60 @@ class ExperimentVisualizer:
             plt.close(fig)
         except Exception as e:
             print(f"  ✗ Error creating correlation matrix: {e}")
+    
+    def create_unsupervised_metrics_plots(self):
+        """Create plots for unsupervised (label-free) metrics."""
+        if not self.config.get('create_unsupervised_plots', False):
+            return
+        
+        print("\n" + "-"*80)
+        print("Creating unsupervised metrics plots...")
+        print("-"*80)
+        
+        try:
+            # Import unsupervised visualization functions
+            from .results import (
+                plot_unsupervised_metrics,
+                plot_supervised_vs_unsupervised_correlation
+            )
+            
+            # 1. Unsupervised metrics distribution plot
+            fig = plot_unsupervised_metrics(
+                self.best_results,
+                model_column='model_name',
+                figsize=(15, 5)
+            )
+            if fig is not None:
+                fig.savefig(
+                    self.output_dir / "unsupervised_metrics.png",
+                    dpi=self.config['dpi'],
+                    bbox_inches='tight'
+                )
+                print("  ✓ Saved: unsupervised_metrics.png")
+                plt.close(fig)
+            
+            # 2. Correlation plots between supervised and unsupervised metrics
+            supervised_metrics = ['balanced_accuracy', 'composite_score', 'feature_f1']
+            for sup_metric in supervised_metrics:
+                if sup_metric in self.best_results.columns:
+                    fig = plot_supervised_vs_unsupervised_correlation(
+                        self.best_results,
+                        supervised_metric=sup_metric,
+                        model_column='model_name',
+                        figsize=(15, 5)
+                    )
+                    if fig is not None:
+                        filename = f"unsupervised_vs_{sup_metric}.png"
+                        fig.savefig(
+                            self.output_dir / filename,
+                            dpi=self.config['dpi'],
+                            bbox_inches='tight'
+                        )
+                        print(f"  ✓ Saved: {filename}")
+                        plt.close(fig)
+        
+        except Exception as e:
+            print(f"  ✗ Error creating unsupervised metrics plots: {e}")
     
     def create_sensitivity_plots(self):
         """Create parameter sensitivity plots."""

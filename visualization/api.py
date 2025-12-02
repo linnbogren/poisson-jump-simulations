@@ -113,6 +113,7 @@ def _build_visualization_config(
         'create_comparison_plots': True,
         'create_overview_plot': True,
         'create_correlation_matrix': True,
+        'create_unsupervised_plots': False,  # Auto-detect below
         'create_heatmaps': False,
         'create_time_series': False,
         'create_sensitivity': False,
@@ -123,6 +124,15 @@ def _build_visualization_config(
     
     # Auto-detect metrics to plot
     viz_config['comparison_metrics'] = _detect_metrics_to_plot(results)
+    
+    # Check if unsupervised metrics are available
+    unsupervised_metrics = ['bic', 'aic', 'silhouette']
+    has_unsupervised = any(
+        metric in results.best_df.columns and results.best_df[metric].notna().any()
+        for metric in unsupervised_metrics
+    )
+    if has_unsupervised:
+        viz_config['create_unsupervised_plots'] = True
     
     # Auto-detect varying parameters
     varying_params = _detect_varying_parameters(results)
@@ -162,17 +172,24 @@ def _detect_metrics_to_plot(results: 'SimulationResults') -> List[str]:
     # Add other important metrics
     important_metrics = [
         'balanced_accuracy',
+        'composite_score',
         'feature_f1',
         'chamfer_distance',
         'breakpoint_count_error',
+        # Unsupervised metrics (if available)
+        'bic',
+        'aic',
+        'silhouette',
     ]
     
     for metric in important_metrics:
         if metric not in metrics and metric in results.best_df.columns:
-            metrics.append(metric)
+            # Check if metric has non-null values
+            if results.best_df[metric].notna().any():
+                metrics.append(metric)
     
-    # Limit to 4 metrics to avoid too many plots
-    return metrics[:4]
+    # Limit to 6 metrics to avoid too many plots (increased from 4 to accommodate unsupervised)
+    return metrics[:6]
 
 
 def _detect_varying_parameters(results: 'SimulationResults') -> List[str]:

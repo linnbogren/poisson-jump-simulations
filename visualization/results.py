@@ -501,3 +501,185 @@ def plot_aggregated_results_overview(
         save_figure(fig, save_path)
     
     return fig
+
+
+def plot_unsupervised_metrics(
+    results_df: pd.DataFrame,
+    model_column: str = 'model_name',
+    figsize: tuple = (15, 5),
+    save_path: Optional[Union[str, Path]] = None,
+) -> Optional[plt.Figure]:
+    """
+    Create visualization for unsupervised (label-free) metrics.
+    
+    Plots BIC, AIC, and Silhouette coefficient distributions across models.
+    These metrics can be used for model selection on real data without ground truth.
+    
+    Parameters
+    ----------
+    results_df : pd.DataFrame
+        Results dataframe with unsupervised metrics
+    model_column : str, default='model_name'
+        Column containing model names
+    figsize : tuple, default=(15, 5)
+        Figure size
+    save_path : str or Path, optional
+        Path to save figure
+        
+    Returns
+    -------
+    plt.Figure or None
+        The created figure, or None if no unsupervised metrics are available
+        
+    Notes
+    -----
+    - BIC and AIC: Lower is better (model selection criteria)
+    - Silhouette: Higher is better (clustering quality, range [-1, 1])
+    """
+    # Check if unsupervised metrics are available
+    unsupervised_metrics = ['bic', 'aic', 'silhouette']
+    available_metrics = [m for m in unsupervised_metrics 
+                        if m in results_df.columns and results_df[m].notna().any()]
+    
+    if not available_metrics:
+        return None
+    
+    n_metrics = len(available_metrics)
+    fig, axes = plt.subplots(1, n_metrics, figsize=figsize)
+    if n_metrics == 1:
+        axes = [axes]
+    
+    unique_models = results_df[model_column].unique()
+    palette = [get_model_color(m) for m in unique_models]
+    
+    metric_info = {
+        'bic': {'name': 'BIC', 'direction': '(lower is better)'},
+        'aic': {'name': 'AIC', 'direction': '(lower is better)'},
+        'silhouette': {'name': 'Silhouette Coefficient', 'direction': '(higher is better)'}
+    }
+    
+    for idx, metric in enumerate(available_metrics):
+        ax = axes[idx]
+        
+        # Create violin plot
+        sns.violinplot(data=results_df, x=model_column, y=metric, hue=model_column,
+                      ax=ax, palette=palette, legend=False)
+        
+        # Add mean markers
+        for i, model in enumerate(unique_models):
+            model_data = results_df[results_df[model_column] == model]
+            mean_val = model_data[metric].mean()
+            ax.plot(i, mean_val, 'D', color='white', markersize=6, 
+                   markeredgecolor='black', markeredgewidth=1.5, zorder=10)
+        
+        info = metric_info[metric]
+        ax.set_xlabel('Model', fontsize=11)
+        ax.set_ylabel(f"{info['name']}", fontsize=11)
+        ax.set_title(f"{info['name']} {info['direction']}", fontsize=12, weight='bold')
+        ax.tick_params(axis='x', rotation=45, labelsize=9)
+        add_grid(ax, alpha=0.3)
+        
+        # Add horizontal line at 0 for silhouette
+        if metric == 'silhouette':
+            ax.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
+    
+    fig.suptitle('Unsupervised Metrics (Label-Free Model Selection)', 
+                fontsize=14, weight='bold', y=1.02)
+    plt.tight_layout()
+    
+    if save_path is not None:
+        save_figure(fig, save_path)
+    
+    return fig
+
+
+def plot_supervised_vs_unsupervised_correlation(
+    results_df: pd.DataFrame,
+    supervised_metric: str = 'balanced_accuracy',
+    unsupervised_metrics: Optional[List[str]] = None,
+    model_column: str = 'model_name',
+    figsize: tuple = (15, 5),
+    save_path: Optional[Union[str, Path]] = None,
+) -> Optional[plt.Figure]:
+    """
+    Plot correlation between supervised and unsupervised metrics.
+    
+    This helps identify which unsupervised metrics best predict supervised performance,
+    useful for model selection on real data where ground truth is unavailable.
+    
+    Parameters
+    ----------
+    results_df : pd.DataFrame
+        Results dataframe with both supervised and unsupervised metrics
+    supervised_metric : str, default='balanced_accuracy'
+        Supervised metric to correlate against (e.g., 'balanced_accuracy', 'composite_score')
+    unsupervised_metrics : list of str, optional
+        Unsupervised metrics to correlate. If None, uses ['bic', 'aic', 'silhouette']
+    model_column : str, default='model_name'
+        Column containing model names
+    figsize : tuple, default=(15, 5)
+        Figure size
+    save_path : str or Path, optional
+        Path to save figure
+        
+    Returns
+    -------
+    plt.Figure or None
+        The created figure, or None if metrics are not available
+    """
+    if unsupervised_metrics is None:
+        unsupervised_metrics = ['bic', 'aic', 'silhouette']
+    
+    # Check availability
+    if supervised_metric not in results_df.columns:
+        return None
+    
+    available_unsup = [m for m in unsupervised_metrics 
+                      if m in results_df.columns and results_df[m].notna().any()]
+    
+    if not available_unsup:
+        return None
+    
+    n_metrics = len(available_unsup)
+    fig, axes = plt.subplots(1, n_metrics, figsize=figsize)
+    if n_metrics == 1:
+        axes = [axes]
+    
+    unique_models = results_df[model_column].unique()
+    
+    for idx, unsup_metric in enumerate(available_unsup):
+        ax = axes[idx]
+        
+        # Scatter plot for each model
+        for model in unique_models:
+            model_data = results_df[results_df[model_column] == model]
+            # Filter out NaN values
+            valid_data = model_data[[supervised_metric, unsup_metric]].dropna()
+            
+            if len(valid_data) > 0:
+                ax.scatter(valid_data[unsup_metric], valid_data[supervised_metric],
+                         label=model, alpha=0.6, s=50, color=get_model_color(model))
+        
+        # Add correlation coefficient
+        valid_data = results_df[[supervised_metric, unsup_metric]].dropna()
+        if len(valid_data) > 1:
+            corr = valid_data[supervised_metric].corr(valid_data[unsup_metric])
+            ax.text(0.05, 0.95, f'r = {corr:.3f}', transform=ax.transAxes,
+                   fontsize=10, verticalalignment='top',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        
+        ax.set_xlabel(format_metric_name(unsup_metric), fontsize=11)
+        ax.set_ylabel(format_metric_name(supervised_metric), fontsize=11)
+        ax.set_title(f'{format_metric_name(supervised_metric)} vs {format_metric_name(unsup_metric)}',
+                    fontsize=11)
+        ax.legend(fontsize=9, loc='best')
+        add_grid(ax, alpha=0.3)
+    
+    fig.suptitle(f'Correlation: Supervised ({format_metric_name(supervised_metric)}) vs Unsupervised Metrics',
+                fontsize=14, weight='bold', y=1.02)
+    plt.tight_layout()
+    
+    if save_path is not None:
+        save_figure(fig, save_path)
+    
+    return fig

@@ -27,7 +27,11 @@ from .metrics import (
     compute_breakpoint_f1,
     compute_composite_score,
     compute_feature_selection_metrics,
-    get_selected_features
+    get_selected_features,
+    # Unsupervised metrics
+    compute_bic,
+    compute_aic,
+    compute_silhouette_coefficient
 )
 
 
@@ -241,6 +245,11 @@ class ModelWrapper:
             selected_features, config.n_informative, config.n_total_features
         )
         
+        # Unsupervised / label-free metrics (for real data without ground truth)
+        # Use appropriate distribution for silhouette coefficient
+        bic = compute_bic(self.model, X, pred_perm)
+        aic = compute_aic(self.model, X, pred_perm)
+        silhouette = compute_silhouette_coefficient(self.model, X, pred_perm, distribution=self.model_name)
         
         # Compile results
         results = {
@@ -268,6 +277,10 @@ class ModelWrapper:
             'feature_recall': float(feat_metrics['recall']),
             'n_selected_noise': int(feat_metrics['n_selected_noise']),
             'n_selected_total': len(selected_features),
+            # Unsupervised metrics (for real data)
+            'bic': float(bic),
+            'aic': float(aic),
+            'silhouette': float(silhouette),
         }
         
         # Optionally include predictions
@@ -420,7 +433,11 @@ def results_to_grid_search_result(
         feature_recall=results['feature_recall'],
         n_selected_noise=results['n_selected_noise'],
         n_selected_total=results['n_selected_total'],
-        computation_time=results['fit_time']
+        computation_time=results['fit_time'],
+        # Unsupervised metrics
+        bic=results.get('bic', None),
+        aic=results.get('aic', None),
+        silhouette=results.get('silhouette', None)
     )
 
 
@@ -486,6 +503,10 @@ def grid_results_to_dataframe(results: List[GridSearchResult]) -> pd.DataFrame:
             'n_selected_noise': result.n_selected_noise,
             'n_selected_total': result.n_selected_total,
             'computation_time': result.computation_time,
+            # Unsupervised metrics
+            'bic': result.bic,
+            'aic': result.aic,
+            'silhouette': result.silhouette,
         }
         rows.append(row)
     

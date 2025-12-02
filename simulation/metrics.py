@@ -359,3 +359,309 @@ def get_selected_features(model) -> List[int]:
         # Non-sparse model: all features selected
         return list(range(model.centers_.shape[1]))
 
+
+###############################################################################
+# Unsupervised / Label-Free Metrics (for real data)
+###############################################################################
+
+def compute_bic(model, X: np.ndarray, predicted_states: np.ndarray) -> float:
+    """
+    Compute Bayesian Information Criterion (BIC) for model selection.
+    
+    BIC penalizes model complexity more strongly than AIC and is preferred
+    for segmentation to avoid over-segmentation.
+    
+    BIC = k * ln(n) - 2 * ln(L_hat)
+    
+    where:
+    - n: number of observations (time steps)
+    - L_hat: maximized likelihood (Poisson likelihood)
+    - k: number of free parameters
+        k = K * P_active + (K-1) + |J|
+        - K: number of states
+        - P_active: number of non-zero weighted features
+        - (K-1): state proportions
+        - |J|: number of detected jumps
+    
+    Lower BIC is better.
+    
+    Parameters
+    ----------
+    model : fitted model
+        Model with centers_ and feat_weights attributes
+    X : np.ndarray
+        Data matrix (n_samples, n_features)
+    predicted_states : np.ndarray
+        Predicted state sequence
+        
+    Returns
+    -------
+    float
+        BIC value (lower is better)
+        
+    """
+    n = len(X)  # number of time steps
+    
+    # Get model parameters
+    K = len(np.unique(predicted_states))  # number of states
+    P_active = len(get_selected_features(model))  # active features
+    n_jumps = np.sum(predicted_states[:-1] != predicted_states[1:])  # detected jumps
+    
+    # Count free parameters
+    k = K * P_active + (K - 1) + n_jumps
+    
+    # Compute log-likelihood (Poisson NLL, ignoring constants)
+    log_likelihood = _compute_poisson_log_likelihood(model, X, predicted_states)
+    
+    # BIC = k * ln(n) - 2 * ln(L)
+    bic = k * np.log(n) - 2 * log_likelihood
+    
+    return float(bic)
+
+
+def compute_aic(model, X: np.ndarray, predicted_states: np.ndarray) -> float:
+    """
+    Compute Akaike Information Criterion (AIC) for model selection.
+    
+    AIC has a lighter complexity penalty than BIC and may be more sensitive
+    in high-noise regimes.
+    
+    AIC = 2k - 2 * ln(L_hat)
+    
+    where k is the number of free parameters (same as BIC) and L_hat is
+    the maximized likelihood.
+    
+    Lower AIC is better.
+    
+    Parameters
+    ----------
+    model : fitted model
+        Model with centers_ and feat_weights attributes
+    X : np.ndarray
+        Data matrix (n_samples, n_features)
+    predicted_states : np.ndarray
+        Predicted state sequence
+        
+    Returns
+    -------
+    float
+        AIC value (lower is better)
+        
+    """
+    # Get model parameters
+    K = len(np.unique(predicted_states))
+    P_active = len(get_selected_features(model))
+    n_jumps = np.sum(predicted_states[:-1] != predicted_states[1:])
+    
+    # Count free parameters
+    k = K * P_active + (K - 1) + n_jumps
+    
+    # Compute log-likelihood
+    log_likelihood = _compute_poisson_log_likelihood(model, X, predicted_states)
+    
+    # AIC = 2k - 2 * ln(L)
+    aic = 2 * k - 2 * log_likelihood
+    
+    return float(aic)
+
+
+def compute_silhouette_coefficient(model, X: np.ndarray, 
+                                   predicted_states: np.ndarray,
+                                   distribution: str = "Poisson") -> float:
+    """
+    Compute mean Silhouette Coefficient for state clustering quality.
+    
+    Treats inferred states as clusters and assesses within-state cohesion
+    versus between-state separation using the model's dissimilarity measure.
+    
+    For each time point t with state s_t:
+        s(t) = (b(t) - a(t)) / max(a(t), b(t))
+    
+    where:
+    - a(t): average dissimilarity to other points in same state
+    - b(t): minimum average dissimilarity to points in any other state
+    
+    We use a centroid-based approximation to reduce O(T^2) complexity,
+    computing distances to state centroids instead of all pairwise distances.
+    
+    Higher silhouette (closer to 1.0) indicates more distinctive, coherent states.
+    
+    Parameters
+    ----------
+    model : fitted model
+        Model with centers_ and feat_weights attributes
+    X : np.ndarray
+        Data matrix (n_samples, n_features)
+    predicted_states : np.ndarray
+        Predicted state sequence
+    distribution : str, default="Poisson"
+        Distribution type: "Gaussian", "Poisson", or "PoissonKL"
+        Determines which dissimilarity measure to use
+        
+    Returns
+    -------
+    float
+        Mean silhouette coefficient in [-1, 1] (higher is better)
+        
+    References
+    ----------
+    Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the
+    interpretation and validation of cluster analysis.
+    Journal of Computational and Applied Mathematics, 20, 53-65.
+    """
+    X = np.asarray(X)
+    predicted_states = np.asarray(predicted_states)
+    
+    # Get centroids and weights from model
+    centroids = model.centers_
+    if hasattr(model, 'feat_weights'):
+        weights = model.feat_weights.values if hasattr(model.feat_weights, 'values') else model.feat_weights
+    else:
+        weights = np.ones(X.shape[1])
+    
+    unique_states = np.unique(predicted_states)
+    n_states = len(unique_states)
+    
+    if n_states <= 1:
+        # Silhouette undefined for single cluster
+        return 0.0
+    
+    silhouette_scores = []
+    
+    for t in range(len(X)):
+        y_t = X[t]
+        state_t = predicted_states[t]
+        
+        # Compute distance to own centroid (a(t))
+        state_idx = np.where(unique_states == state_t)[0][0]
+        a_t = _compute_weighted_dissimilarity(y_t, centroids[state_idx], weights, distribution)
+        
+        # Compute distances to other state centroids (for b(t))
+        other_distances = []
+        for i, state in enumerate(unique_states):
+            if state != state_t:
+                dist = _compute_weighted_dissimilarity(y_t, centroids[i], weights, distribution)
+                other_distances.append(dist)
+        
+        if len(other_distances) == 0:
+            b_t = 0.0
+        else:
+            b_t = min(other_distances)
+        
+        # Compute silhouette for this point
+        if max(a_t, b_t) == 0:
+            s_t = 0.0
+        else:
+            s_t = (b_t - a_t) / max(a_t, b_t)
+        
+        silhouette_scores.append(s_t)
+    
+    return float(np.mean(silhouette_scores))
+
+
+###############################################################################
+# Helper Functions for Unsupervised Metrics
+###############################################################################
+
+def _compute_poisson_log_likelihood(model, X: np.ndarray, 
+                                    predicted_states: np.ndarray) -> float:
+    """
+    Compute Poisson log-likelihood for the fitted model.
+    
+    Returns the maximized log-likelihood (ignoring additive constants).
+    
+    Note: This is used for BIC/AIC computation. Uses the model's centroids
+    as the fitted parameters.
+    """
+    X = np.asarray(X)
+    predicted_states = np.asarray(predicted_states)
+    
+    # Get centroids and weights
+    centroids = model.centers_
+    if hasattr(model, 'feat_weights'):
+        weights = model.feat_weights.values if hasattr(model.feat_weights, 'values') else model.feat_weights
+    else:
+        weights = np.ones(X.shape[1])
+    
+    log_likelihood = 0.0
+    unique_states = np.unique(predicted_states)
+    
+    for t in range(len(X)):
+        y_t = X[t]
+        state_t = predicted_states[t]
+        state_idx = np.where(unique_states == state_t)[0][0]
+        mu_t = centroids[state_idx]
+        
+        # Poisson log-likelihood (ignoring factorial constant):
+        # ln(L) = sum_f w_f * (y_f * ln(mu_f) - mu_f)
+        # Avoid log(0) by adding small epsilon
+        epsilon = 1e-10
+        mu_safe = np.maximum(mu_t, epsilon)
+        
+        ll_t = np.sum(weights * (y_t * np.log(mu_safe) - mu_t))
+        log_likelihood += ll_t
+    
+    return float(log_likelihood)
+
+
+def _compute_weighted_dissimilarity(y: np.ndarray, mu: np.ndarray, 
+                                     weights: np.ndarray, 
+                                     distribution: str = "Poisson") -> float:
+    """
+    Compute weighted dissimilarity between observation and centroid.
+    
+    This function unifies all distribution-specific distance computations
+    for use in silhouette coefficient and other metrics.
+    
+    Parameters
+    ----------
+    y : np.ndarray
+        Observation vector
+    mu : np.ndarray
+        Centroid vector
+    weights : np.ndarray
+        Feature weights
+    distribution : str, default="Poisson"
+        Distribution type: "Gaussian", "Poisson", or "PoissonKL"
+        
+    Returns
+    -------
+    float
+        Weighted dissimilarity measure
+        
+    Notes
+    -----
+    For Gaussian: Uses weighted squared Euclidean distance
+    For Poisson: Uses weighted Poisson negative log-likelihood
+    For PoissonKL: Uses weighted KL divergence between Poisson distributions
+    """
+    epsilon = 1e-10
+    distribution = distribution.lower()
+    
+    if distribution == "gaussian":
+        # Weighted squared Euclidean distance
+        # d(y, mu) = sum_f w_f * (y_f - mu_f)^2
+        squared_diff = (y - mu) ** 2
+        return float(np.sum(weights * squared_diff))
+    
+    elif distribution == "poisson":
+        # Weighted Poisson negative log-likelihood (ignoring constants)
+        # d(y, mu) = sum_f w_f * (mu_f - y_f * ln(mu_f))
+        mu_safe = np.maximum(mu, epsilon)
+        nll = mu_safe - y * np.log(mu_safe)
+        return float(np.sum(weights * nll))
+    
+    elif distribution == "poissonkl":
+        # Weighted KL divergence: D_KL(Pois(y) || Pois(mu))
+        # d(y, mu) = sum_f w_f * (y_f * ln(y_f / mu_f) + mu_f - y_f)
+        mu_safe = np.maximum(mu, epsilon)
+        y_safe = np.maximum(y, epsilon)
+        kl = y_safe * np.log(y_safe / mu_safe) + mu_safe - y_safe
+        return float(np.sum(weights * kl))
+    
+    else:
+        raise ValueError(
+            f"Unknown distribution: {distribution}. "
+            f"Must be one of: 'Gaussian', 'Poisson', 'PoissonKL'"
+        )
+
