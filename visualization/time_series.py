@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Optional, Dict, List, Union, Any, Tuple
 from pathlib import Path
+from typing import Iterable
 
 from .utils import (
     get_state_colors,
@@ -471,3 +472,134 @@ def plot_multiple_series_comparison(
         save_figure(fig, save_path)
     
     return fig
+
+
+def filter_models(
+    models_dict: Dict[str, Any],
+    include: Optional[Iterable[str]] = None,
+    exclude: Optional[Iterable[str]] = None,
+    order: Optional[Iterable[str]] = None,
+    limit: Optional[int] = None,
+    rename: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """Filter and order a models dictionary for plotting.
+
+    Parameters
+    ----------
+    models_dict : dict
+        Mapping of display name -> fitted model (must have `labels_`).
+    include : list of str, optional
+        Keep entries whose names contain any of these substrings. If None, keep all.
+    exclude : list of str, optional
+        Drop entries whose names contain any of these substrings.
+    order : list of str, optional
+        Desired name order (by exact match or substring priority). Others follow.
+    limit : int, optional
+        Keep only the first N entries after filtering and ordering.
+    rename : dict, optional
+        Mapping old name -> new display name.
+
+    Returns
+    -------
+    dict
+        A new dict with filtered, ordered, and optionally renamed keys.
+    """
+    items = list(models_dict.items())
+
+    def matches_any(name: str, patterns: Iterable[str]) -> bool:
+        return any(p.lower() in name.lower() for p in patterns)
+
+    if include:
+        items = [(k, v) for k, v in items if matches_any(k, include)]
+    if exclude:
+        items = [(k, v) for k, v in items if not matches_any(k, exclude)]
+
+    if order:
+        priority = []
+        rest = []
+        used = set()
+        for pat in order:
+            for i, (k, v) in enumerate(items):
+                if i in used:
+                    continue
+                if (pat == k) or (pat.lower() in k.lower()):
+                    priority.append((k, v))
+                    used.add(i)
+        for i, kv in enumerate(items):
+            if i not in used:
+                rest.append(kv)
+        items = priority + rest
+
+    if limit is not None and limit >= 0:
+        items = items[:limit]
+
+    if rename:
+        items = [(rename.get(k, k), v) for k, v in items]
+
+    return {k: v for k, v in items}
+
+
+def plot_stacked_states_from_results(
+    X: pd.DataFrame,
+    results: Dict[str, Any],
+    feature_to_plot: Optional[Union[str, List[str]]] = None,
+    include_models: Optional[Iterable[str]] = None,
+    exclude_models: Optional[Iterable[str]] = None,
+    order: Optional[Iterable[str]] = None,
+    name_format: str = "{model} (K={n_components})",
+    figsize: tuple = (12, 10),
+    save_path: Optional[Union[str, Path]] = None,
+) -> plt.Figure:
+    """Convenience wrapper to plot stacked states from `fit_on_real_data` results.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        Input time series data.
+    results : dict
+        The return dict from `simulation.api.fit_on_real_data`.
+    feature_to_plot : str or list, optional
+        Feature name(s) to plot on the top panel(s).
+    include_models : list of str, optional
+        Only include models whose formatted names contain any of these substrings.
+    exclude_models : list of str, optional
+        Exclude models whose formatted names contain any of these substrings.
+    order : list of str, optional
+        Desired order for model display names (exact or substring priority).
+    name_format : str, default="{model} (K={n_components})"
+        Format string for each model panel name.
+    figsize : tuple, default=(12, 10)
+        Figure size for the plot.
+    save_path : str or Path, optional
+        Path to save the figure.
+
+    Returns
+    -------
+    plt.Figure
+        The created figure.
+    """
+    best_models = results.get("best_models", {})
+    built: Dict[str, Any] = {}
+    for mname, payload in best_models.items():
+        model_obj = payload.get("model", None) if isinstance(payload, dict) else None
+        if model_obj is None:
+            continue
+        ncomp = payload.get("n_components", getattr(model_obj, "n_components", None))
+        display_name = name_format.format(model=mname, n_components=ncomp)
+        built[display_name] = model_obj
+
+    filtered = filter_models(
+        built,
+        include=include_models,
+        exclude=exclude_models,
+        order=order,
+    )
+
+    return plot_stacked_states(
+        X=X,
+        models_dict=filtered,
+        true_states=None,
+        feature_to_plot=feature_to_plot,
+        figsize=figsize,
+        save_path=save_path,
+    )

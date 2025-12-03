@@ -291,6 +291,88 @@ class ModelWrapper:
             results['selected_features'] = selected_features
         
         return results
+    
+    def evaluate_unsupervised(
+        self,
+        X: pd.DataFrame,
+        return_predictions: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Evaluate fitted model using only unsupervised metrics.
+        
+        This method is for real data where ground truth labels are not available.
+        Computes model selection criteria (BIC, AIC) and clustering quality (Silhouette).
+        
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Time series data
+        return_predictions : bool, default=False
+            If True, include predicted states and selected features in returned dict
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing unsupervised metrics:
+            - bic: Bayesian Information Criterion (lower is better)
+            - aic: Akaike Information Criterion (lower is better)
+            - silhouette: Silhouette coefficient (higher is better, range [-1, 1])
+            - n_breakpoints_estimated: Number of detected breakpoints
+            - n_selected_total: Number of selected features
+            
+        Raises
+        ------
+        RuntimeError
+            If model hasn't been fitted yet
+            
+        Examples
+        --------
+        >>> wrapper = ModelWrapper('Poisson', n_components=3, max_feats=10, jump_penalty=1.0)
+        >>> wrapper.fit(X_real)
+        >>> results = wrapper.evaluate_unsupervised(X_real)
+        >>> print(f"BIC: {results['bic']:.2f}, Silhouette: {results['silhouette']:.3f}")
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model must be fitted before evaluation")
+        
+        # Get predictions
+        pred_states = self.get_states()
+        
+        # Count breakpoints/jumps
+        estimated_breakpoints = extract_breakpoints(pred_states)
+        n_jumps_est = len(estimated_breakpoints)
+        
+        # Feature selection
+        selected_features = self.get_selected_features()
+        
+        # Unsupervised metrics
+        bic = compute_bic(self.model, X, pred_states)
+        aic = compute_aic(self.model, X, pred_states)
+        silhouette = compute_silhouette_coefficient(
+            self.model, X, pred_states, distribution=self.model_name
+        )
+        
+        # Compile results
+        results = {
+            'model_name': self.model_name,
+            'hyperparameters': self.hyperparameters.copy(),
+            'fit_time': self.fit_time,
+            # Unsupervised metrics
+            'bic': float(bic),
+            'aic': float(aic),
+            'silhouette': float(silhouette),
+            # Descriptive statistics
+            'n_jumps_estimated': int(n_jumps_est),
+            'n_breakpoints_estimated': len(estimated_breakpoints),
+            'n_selected_total': len(selected_features),
+        }
+        
+        # Optionally include predictions
+        if return_predictions:
+            results['predicted_states'] = pred_states
+            results['selected_features'] = selected_features
+        
+        return results
 
 
 def fit_and_evaluate(

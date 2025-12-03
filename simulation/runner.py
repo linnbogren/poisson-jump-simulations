@@ -28,6 +28,17 @@ import warnings
 from joblib import Parallel, delayed
 import logging
 
+# Configure logging for suppressed warnings
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(message)s')
+
+# Suppress specific division warnings at module level (before multiprocessing)
+# This works across process boundaries unlike warnings.catch_warnings()
+warnings.filterwarnings(
+    'ignore',
+    message='invalid value encountered in divide',
+    category=RuntimeWarning
+)
+
 from .config import SimulationConfig, GridSearchResult, ExperimentConfig
 from .data_generation import generate_data
 from .hyperparameters import (
@@ -70,10 +81,6 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
         If save_models=True, returns (results, best_models_dict)
     """
     config, hyperparameter_grid, model_names, save_models, optimize_metric, grid_n_jobs = args
-    
-    # Suppress division warnings in worker process
-    warnings.filterwarnings('ignore', message='invalid value encountered in divide')
-    warnings.filterwarnings('ignore', category=RuntimeWarning)
     
     # Generate data ONCE - all models use same data
     X, states, breakpoints = generate_data(config)
@@ -165,10 +172,6 @@ def run_single_replication_optuna(args: Tuple) -> List[GridSearchResult]:
         Best results for each model type from Optuna optimization
     """
     config, n_trials, n_total_features, model_names, optimize_metric, grid_config, optuna_n_jobs = args
-    
-    # Suppress division warnings in worker process
-    warnings.filterwarnings('ignore', message='invalid value encountered in divide')
-    warnings.filterwarnings('ignore', category=RuntimeWarning)
     
     # Generate data ONCE
     X, states, breakpoints = generate_data(config)

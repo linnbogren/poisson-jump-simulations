@@ -36,6 +36,8 @@ from .time_series import (
     plot_time_series_with_breakpoints,
     plot_simulated_from_regimes,
     plot_stacked_states,
+    plot_stacked_states_from_results,
+    filter_models,
     plot_multiple_series_comparison,
 )
 
@@ -83,6 +85,8 @@ __all__ = [
     'plot_time_series_with_breakpoints',
     'plot_simulated_from_regimes',
     'plot_stacked_states',
+    'plot_stacked_states_from_results',
+    'filter_models',
     'plot_multiple_series_comparison',
     
     # Comparison

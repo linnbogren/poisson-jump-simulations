@@ -36,7 +36,7 @@ from .runner import run_simulation as run_simulation_advanced
 from .results import ResultManager
 
 # New simplified API (recommended - imported last to take precedence)
-from .api import run_simulation, SimulationResults
+from .api import run_simulation, SimulationResults, fit_on_real_data
 
 from .data_generation import (
     generate_hmm_transition_matrix,
@@ -95,6 +95,7 @@ __all__ = [
     # Simplified API (recommended)
     'run_simulation',
     'SimulationResults',
+    'fit_on_real_data',  # For real data analysis
     
     # Configuration classes
     'SimulationConfig',
