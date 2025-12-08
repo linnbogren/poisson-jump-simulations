@@ -175,7 +175,7 @@ def main():
     # Define a comparison experiment
     config = {
         "experiment_name": "poisson_delta_comparison",
-        "num_simulations": 5,
+        "num_simulations": 10,
         
         # Test multiple delta values and feature counts
         "data_generation": [
@@ -187,7 +187,7 @@ def main():
                 "n_total_features": P,
                 "n_informative": 15,  # Keep informative features constant
             }
-            for delta in [0.05, 0.1, 0.15, 0.2, 0.25]
+            for delta in [0.1, 0.15, 0.2, 0.25]
             for P in [15, 60, 100, 300]
         ] ,
         
@@ -195,18 +195,20 @@ def main():
         "models_to_run": ["Gaussian", "Poisson", "PoissonKL"],
         
         # Optimize on balanced accuracy
-        "optimize_metric": "balanced_accuracy",
+        "optimize_metric": "composite_score",
         
         # Enable grid search for model selection
         "hyperparameters": {
             "n_states_values": [2, 3, 4],
-            "jump_penalty_min": 0.1,
-            "jump_penalty_max": 100.0,
-            "jump_penalty_num": 5,
+            "jump_penalty_min": 1,
+            "jump_penalty_max": 1000.0,
+            "jump_penalty_num": 7,
             "kappa_min": 1.0,
             "kappa_max_type": "sqrt_P",  # Max kappa = sqrt(P)
-            "kappa_num": 7,  # Number of kappa values to test
+            "kappa_num": 5,  # Number of kappa values to tes
         },
+        "quick_test": False,  # Run full grid, not quick test
+    
     }
 
     # Run the simulation

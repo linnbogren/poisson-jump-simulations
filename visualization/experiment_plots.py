@@ -115,8 +115,7 @@ class ExperimentVisualizer:
                 try:
                     fig = plot_model_comparison_bars(
                         self.best_results,
-                        metric=metric,
-                        title=f'Model Performance: {metric.replace("_", " ").title()}'
+                        metric=metric
                     )
                     filename = f"comparison_{metric}.png"
                     fig.savefig(

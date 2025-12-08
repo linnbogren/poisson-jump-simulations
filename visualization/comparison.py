@@ -31,12 +31,12 @@ def plot_model_comparison_bars(
     figsize: tuple = (10, 6),
     save_path: Optional[Union[str, Path]] = None,
 ) -> plt.Figure:
-    """Create bar chart comparing models across a metric.
+    """Create bar chart comparing models across delta and P values.
     
     Parameters
     ----------
     results_df : pd.DataFrame
-        Results dataframe with columns [model_column, metric, ...].
+        Results dataframe with columns [model_column, metric, delta, n_total_features, ...].
     metric : str, default='balanced_accuracy'
         Metric to compare.
     model_column : str, default='model_name'
@@ -62,32 +62,64 @@ def plot_model_comparison_bars(
     ...     title='Model Performance Comparison'
     ... )
     """
-    # Calculate statistics
-    stats = results_df.groupby(model_column)[metric].agg(['mean', 'std', 'sem']).reset_index()
-    stats = stats.sort_values('mean', ascending=False)
+    # Get unique delta and P values
+    unique_deltas = sorted(results_df['delta'].unique())
+    unique_P = sorted(results_df['n_total_features'].unique())
+    unique_models = sorted(results_df[model_column].unique())
     
-    # Create figure
-    fig, ax = plt.subplots(figsize=figsize)
+    # Create subplot grid: rows = delta values, cols = P values
+    n_deltas = len(unique_deltas)
+    n_P = len(unique_P)
     
-    # Get colors for each model
-    colors = [get_model_color(model) for model in stats[model_column]]
+    fig, axes = plt.subplots(n_deltas, n_P, figsize=(n_P * 4, n_deltas * 3))
     
-    # Create bars
-    x_pos = np.arange(len(stats))
-    bars = ax.bar(x_pos, stats['mean'], 
-                  yerr=stats['sem'] if show_error_bars else None,
-                  color=colors, alpha=0.8, capsize=5, edgecolor='black', linewidth=1)
+    # Handle single subplot case
+    if n_deltas == 1 and n_P == 1:
+        axes = np.array([[axes]])
+    elif n_deltas == 1:
+        axes = axes.reshape(1, -1)
+    elif n_P == 1:
+        axes = axes.reshape(-1, 1)
     
-    # Customize
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(stats[model_column], rotation=45, ha='right')
-    ax.set_ylabel(format_metric_name(metric), fontsize=16)
-    ax.set_xlabel('Model', fontsize=16)
-    
-    add_grid(ax, alpha=0.3)
-    
-    # Add value labels
-    add_value_labels(ax, bars, format_str='{:.3f}')
+    for i, delta_val in enumerate(unique_deltas):
+        for j, P_val in enumerate(unique_P):
+            ax = axes[i, j]
+            
+            # Filter data for this delta and P
+            subset = results_df[
+                (results_df['delta'] == delta_val) & 
+                (results_df['n_total_features'] == P_val)
+            ]
+            
+            if len(subset) == 0:
+                ax.set_visible(False)
+                continue
+            
+            # Calculate statistics per model
+            stats = subset.groupby(model_column)[metric].agg(['mean', 'sem']).reset_index()
+            
+            # Get colors
+            colors = [get_model_color(model) for model in stats[model_column]]
+            
+            # Create bars
+            x_pos = np.arange(len(stats))
+            bars = ax.bar(x_pos, stats['mean'], 
+                          yerr=stats['sem'] if show_error_bars else None,
+                          color=colors, alpha=0.8, capsize=3, 
+                          edgecolor='black', linewidth=0.5)
+            
+            # Customize
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(stats[model_column], rotation=45, ha='right', fontsize=10)
+            
+            # Only show y-label on leftmost plots
+            if j == 0:
+                ax.set_ylabel(format_metric_name(metric), fontsize=14)
+            
+            # Add subplot title showing delta and P
+            ax.set_title(f'δ={delta_val:.2f}, P={int(P_val)}', fontsize=12)
+            
+            add_grid(ax, alpha=0.3)
     
     plt.tight_layout()
     

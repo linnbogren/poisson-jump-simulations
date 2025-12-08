@@ -240,7 +240,7 @@ def create_comparison_plot(
     save_path: Optional[Path] = None
 ) -> Any:
     """
-    Create single comparison plot for a specific metric.
+    Create comparison plot grid showing performance across delta and P values.
     
     Parameters
     ----------
@@ -261,7 +261,6 @@ def create_comparison_plot(
     fig = plot_model_comparison_bars(
         results.best_df,
         metric=metric,
-        title=f'Model Performance: {metric.replace("_", " ").title()}',
         save_path=save_path
     )
     

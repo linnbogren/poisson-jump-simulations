@@ -354,7 +354,7 @@ def get_selected_features(model) -> List[int]:
     """
     if hasattr(model, 'feat_weights'):
         weights = model.feat_weights.values if hasattr(model.feat_weights, 'values') else model.feat_weights
-        return np.where(weights > 1e-10)[0].tolist()
+        return np.where(weights > 1e-8)[0].tolist() # TODO try to make the toleration bigger!
     else:
         # Non-sparse model: all features selected
         return list(range(model.centers_.shape[1]))
@@ -648,8 +648,8 @@ def _compute_gaussian_log_likelihood(model, X: np.ndarray,
             mu_state = centroids[state_idx]
             # Weighted variance estimation
             variances[state_idx] = np.sum(weights * np.var(X_state, axis=0)) / np.sum(weights)
-            # Avoid zero variance
-            variances[state_idx] = max(variances[state_idx], 1e-6)
+            # Avoid zero variance (use np.maximum for element-wise operation)
+            variances[state_idx] = np.maximum(variances[state_idx], 1e-6)
     
     log_likelihood = 0.0
     
