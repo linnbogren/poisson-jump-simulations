@@ -120,6 +120,20 @@ def _build_visualization_config(
         'dpi': 300,
         'figsize_default': (10, 6),
         'figsize_large': (14, 10),
+        # Specific metrics for correlation matrix
+        'correlation_metrics': [
+            'composite_score',
+            'balanced_accuracy',
+            'breakpoint_error',
+            'breakpoint_f1',
+            'chamfer_distance',
+            'feature_f1',
+            'feature_recall',
+            'fit_time',
+            'bic',
+            'aic',
+            'silhouette'
+        ],
     }
     
     # Auto-detect metrics to plot

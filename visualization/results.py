@@ -71,15 +71,13 @@ def plot_metric_distributions(
                          palette=[get_model_color(m) for m in results_df[model_column].unique()],
                          alpha=0.6)
         
-        ax.set_xlabel('Model', fontsize=11)
-        ax.set_ylabel(format_metric_name(metric), fontsize=11)
-        ax.set_title(format_metric_name(metric), fontsize=12)
-        ax.tick_params(axis='x', rotation=45, labelsize=9)
+        ax.set_xlabel('Model', fontsize=16)
+        ax.set_ylabel(format_metric_name(metric), fontsize=16)
+        # Subplot titles removed per user request
+        ax.tick_params(axis='x', rotation=45, labelsize=14)
         add_grid(ax, alpha=0.3)
     
-    if title is None:
-        title = f'Metric Distributions ({plot_type.capitalize()} Plot)'
-    fig.suptitle(title, fontsize=16, y=1.02)
+    # Main title removed per user request
     
     plt.tight_layout()
     
@@ -134,11 +132,11 @@ def plot_correlation_matrix(
     
     # Format labels
     ax.set_xticklabels([format_metric_name(m) for m in metrics], 
-                      rotation=45, ha='right', fontsize=10)
+                      rotation=45, ha='right', fontsize=14)
     ax.set_yticklabels([format_metric_name(m) for m in metrics], 
-                      rotation=0, fontsize=10)
+                      rotation=0, fontsize=14)
     
-    ax.set_title(title, fontsize=14, pad=20)
+    # Title removed per user request
     
     plt.tight_layout()
     
@@ -240,7 +238,7 @@ def plot_summary_table(
         table[(i, -1)].set_facecolor('#ecf0f1')
         table[(i, -1)].set_text_props(weight='bold')
     
-    ax.set_title(title, fontsize=16, pad=20, weight='bold')
+    # Title removed per user request
     
     plt.tight_layout()
     
@@ -295,15 +293,12 @@ def plot_pairwise_metric_scatter(
                   color=color, label=model_name, alpha=0.6, 
                   s=50, edgecolors='black', linewidth=0.5)
     
-    ax.set_xlabel(format_metric_name(metric_x), fontsize=12)
-    ax.set_ylabel(format_metric_name(metric_y), fontsize=12)
-    
-    if title is None:
-        title = f'{format_metric_name(metric_y)} vs {format_metric_name(metric_x)}'
-    ax.set_title(title, fontsize=14, pad=20)
+    ax.set_xlabel(format_metric_name(metric_x), fontsize=16)
+    ax.set_ylabel(format_metric_name(metric_y), fontsize=16)
     
     add_grid(ax)
-    ax.legend(loc='best', fontsize=10)
+    # Title removed per user request
+    ax.legend(loc='best', fontsize=14)
     
     plt.tight_layout()
     
@@ -368,15 +363,12 @@ def plot_metric_evolution(
             ax.plot(model_data[time_column], model_data[metric],
                    label=model_name, color=color, linewidth=1.5, alpha=0.7)
     
-    ax.set_xlabel(format_parameter_name(time_column), fontsize=12)
-    ax.set_ylabel(format_metric_name(metric), fontsize=12)
-    
-    if title is None:
-        title = f'{format_metric_name(metric)} Evolution'
-    ax.set_title(title, fontsize=14, pad=20)
+    ax.set_xlabel(format_parameter_name(time_column), fontsize=16)
+    ax.set_ylabel(format_metric_name(metric), fontsize=16)
     
     add_grid(ax)
-    ax.legend(loc='best', fontsize=10)
+    # Title removed per user request
+    ax.legend(loc='best', fontsize=14)
     
     plt.tight_layout()
     
@@ -426,9 +418,9 @@ def plot_aggregated_results_overview(
     x_pos = np.arange(len(stats))
     ax1.bar(x_pos, stats['mean'], yerr=stats['sem'], color=colors, alpha=0.8, capsize=3)
     ax1.set_xticks(x_pos)
-    ax1.set_xticklabels(stats[model_column], rotation=45, ha='right', fontsize=9)
-    ax1.set_ylabel(format_metric_name(key_metrics[0]), fontsize=10)
-    ax1.set_title(format_metric_name(key_metrics[0]), fontsize=11, weight='bold')
+    ax1.set_xticklabels(stats[model_column], rotation=45, ha='right', fontsize=14)
+    ax1.set_ylabel(format_metric_name(key_metrics[0]), fontsize=16)
+    # Subplot titles removed per user request
     add_grid(ax1, alpha=0.3)
     
     # 2. Violin plot for second metric
@@ -437,20 +429,20 @@ def plot_aggregated_results_overview(
     palette = [get_model_color(m) for m in unique_models]
     sns.violinplot(data=results_df, x=model_column, y=key_metrics[1], hue=model_column, 
                    ax=ax2, palette=palette, legend=False)
-    ax2.set_xlabel('Model', fontsize=10)
-    ax2.set_ylabel(format_metric_name(key_metrics[1]), fontsize=10)
-    ax2.set_title(format_metric_name(key_metrics[1]), fontsize=11, weight='bold')
-    ax2.tick_params(axis='x', rotation=45, labelsize=9)
+    ax2.set_xlabel('Model', fontsize=16)
+    ax2.set_ylabel(format_metric_name(key_metrics[1]), fontsize=16)
+    # Subplot titles removed per user request
+    ax2.tick_params(axis='x', rotation=45, labelsize=14)
     add_grid(ax2, alpha=0.3)
     
     # 3. Box plot for third metric
     ax3 = fig.add_subplot(gs[0, 2])
     sns.boxplot(data=results_df, x=model_column, y=key_metrics[2], hue=model_column,
                 ax=ax3, palette=palette, legend=False)
-    ax3.set_xlabel('Model', fontsize=10)
-    ax3.set_ylabel(format_metric_name(key_metrics[2]), fontsize=10)
-    ax3.set_title(format_metric_name(key_metrics[2]), fontsize=11, weight='bold')
-    ax3.tick_params(axis='x', rotation=45, labelsize=9)
+    ax3.set_xlabel('Model', fontsize=16)
+    ax3.set_ylabel(format_metric_name(key_metrics[2]), fontsize=16)
+    # Subplot titles removed per user request
+    ax3.tick_params(axis='x', rotation=45, labelsize=14)
     add_grid(ax3, alpha=0.3)
     
     # 4. Scatter plot: metric 1 vs metric 2
@@ -459,12 +451,11 @@ def plot_aggregated_results_overview(
         model_data = results_df[results_df[model_column] == model_name]
         ax4.scatter(model_data[key_metrics[0]], model_data[key_metrics[1]],
                    color=get_model_color(model_name), label=model_name, alpha=0.6, s=30)
-    ax4.set_xlabel(format_metric_name(key_metrics[0]), fontsize=10)
-    ax4.set_ylabel(format_metric_name(key_metrics[1]), fontsize=10)
-    ax4.set_title(f'{format_metric_name(key_metrics[1])} vs {format_metric_name(key_metrics[0])}', 
-                 fontsize=11, weight='bold')
+    ax4.set_xlabel(format_metric_name(key_metrics[0]), fontsize=16)
+    ax4.set_ylabel(format_metric_name(key_metrics[1]), fontsize=16)
+    # Subplot titles removed per user request
     add_grid(ax4)
-    ax4.legend(loc='best', fontsize=8)
+    ax4.legend(loc='best', fontsize=14)
     
     # 5. Scatter plot: metric 1 vs metric 3
     ax5 = fig.add_subplot(gs[1, 1])
@@ -472,10 +463,9 @@ def plot_aggregated_results_overview(
         model_data = results_df[results_df[model_column] == model_name]
         ax5.scatter(model_data[key_metrics[0]], model_data[key_metrics[2]],
                    color=get_model_color(model_name), label=model_name, alpha=0.6, s=30)
-    ax5.set_xlabel(format_metric_name(key_metrics[0]), fontsize=10)
-    ax5.set_ylabel(format_metric_name(key_metrics[2]), fontsize=10)
-    ax5.set_title(f'{format_metric_name(key_metrics[2])} vs {format_metric_name(key_metrics[0])}', 
-                 fontsize=11, weight='bold')
+    ax5.set_xlabel(format_metric_name(key_metrics[0]), fontsize=16)
+    ax5.set_ylabel(format_metric_name(key_metrics[2]), fontsize=16)
+    # Subplot titles removed per user request
     add_grid(ax5)
     
     # 6. Summary statistics text
@@ -492,10 +482,10 @@ def plot_aggregated_results_overview(
             summary_text += f"  {model_name}: {mean_val:.3f} ± {std_val:.3f}\n"
         summary_text += "\n"
     
-    ax6.text(0.1, 0.9, summary_text, fontsize=9, family='monospace',
+    ax6.text(0.1, 0.9, summary_text, fontsize=14, family='monospace',
             verticalalignment='top', transform=ax6.transAxes)
     
-    fig.suptitle('Results Overview Dashboard', fontsize=18, weight='bold', y=0.98)
+    # Main title removed per user request
     
     if save_path is not None:
         save_figure(fig, save_path)
@@ -583,8 +573,7 @@ def plot_unsupervised_metrics(
         if metric == 'silhouette':
             ax.axhline(y=0, color='red', linestyle='--', alpha=0.5, linewidth=1)
     
-    fig.suptitle('Unsupervised Metrics (Label-Free Model Selection)', 
-                fontsize=14, weight='bold', y=1.02)
+    # Main title removed per user request
     plt.tight_layout()
     
     if save_path is not None:
@@ -668,15 +657,13 @@ def plot_supervised_vs_unsupervised_correlation(
                    fontsize=10, verticalalignment='top',
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         
-        ax.set_xlabel(format_metric_name(unsup_metric), fontsize=11)
-        ax.set_ylabel(format_metric_name(supervised_metric), fontsize=11)
-        ax.set_title(f'{format_metric_name(supervised_metric)} vs {format_metric_name(unsup_metric)}',
-                    fontsize=11)
-        ax.legend(fontsize=9, loc='best')
+        ax.set_xlabel(format_metric_name(unsup_metric), fontsize=16)
+        ax.set_ylabel(format_metric_name(supervised_metric), fontsize=16)
+        # Subplot titles removed per user request
+        ax.legend(fontsize=14, loc='best')
         add_grid(ax, alpha=0.3)
     
-    fig.suptitle(f'Correlation: Supervised ({format_metric_name(supervised_metric)}) vs Unsupervised Metrics',
-                fontsize=14, weight='bold', y=1.02)
+    # Main title removed per user request
     plt.tight_layout()
     
     if save_path is not None:

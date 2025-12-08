@@ -97,7 +97,7 @@ def plot_time_series_with_breakpoints(
     if n_features == 1:
         axes = [axes]
     
-    fig.suptitle(title, fontsize=18)
+    # Title removed per user request
     
     base_colors = ['#3498db', '#2ecc71', '#e74c3c', '#9b59b6', '#f39c12']
     
@@ -120,20 +120,13 @@ def plot_time_series_with_breakpoints(
             ax.axvline(x=cp, color='#e74c3c', linestyle='--', linewidth=2, 
                       label=label_pred, zorder=3)
         
-        ax.set_ylabel('Value', fontsize=12)
+        ax.set_ylabel('Value', fontsize=16)
         
-        # Add feature weights if available
-        title_text = f'{feature.capitalize()}'
-        if hasattr(model, 'feat_weights') and model.feat_weights is not None:
-            weight = (model.feat_weights.iloc[i] if isinstance(model.feat_weights, pd.Series) 
-                     else model.feat_weights[i])
-            title_text += f" (Weight: {weight:.4f})"
-        
-        ax.set_title(title_text, fontsize=14)
+        # Subplot titles removed per user request
         add_grid(ax)
-        ax.legend(loc='best', fontsize=10)
+        ax.legend(loc='best', fontsize=14)
     
-    axes[-1].set_xlabel('Time Step', fontsize=12)
+    axes[-1].set_xlabel('Time Step', fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.96])
     
     if save_path is not None:
@@ -214,7 +207,7 @@ def plot_simulated_from_regimes(
     if n_features == 1:
         axes = [axes]
     
-    fig.suptitle(title, fontsize=18)
+    # Title removed per user request
     
     base_colors = ['#3498db', '#2ecc71', '#e74c3c', '#9b59b6', '#f39c12']
     
@@ -232,12 +225,12 @@ def plot_simulated_from_regimes(
             ax.axvline(x=cp, color='#e74c3c', linestyle='--', linewidth=2, 
                       label=label_pred, zorder=3)
         
-        ax.set_ylabel('Simulated Value', fontsize=12)
-        ax.set_title(f'Simulated {feature.capitalize()} from Predicted Regimes', fontsize=14)
+        ax.set_ylabel('Simulated Value', fontsize=16)
+        # Subplot titles removed per user request
         add_grid(ax)
-        ax.legend(loc='best', fontsize=10)
+        ax.legend(loc='best', fontsize=14)
     
-    axes[-1].set_xlabel('Time Step', fontsize=12)
+    axes[-1].set_xlabel('Time Step', fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.96])
     
     if save_path is not None:
@@ -251,6 +244,7 @@ def plot_stacked_states(
     models_dict: Dict[str, Any],
     true_states: Optional[Union[np.ndarray, pd.Series]] = None,
     feature_to_plot: Optional[Union[str, List[str]]] = None,
+    model_metrics: Optional[Dict[str, Dict[str, float]]] = None,
     figsize: tuple = (12, 10),
     save_path: Optional[Union[str, Path]] = None,
 ) -> plt.Figure:
@@ -273,6 +267,9 @@ def plot_stacked_states(
         True state sequence if available.
     feature_to_plot : str or list, optional
         Feature name(s) to plot. If None, plots all features.
+    model_metrics : dict, optional
+        Dictionary of {model_name: {metric_name: value}} for displaying performance metrics.
+        Example: {'Gaussian': {'composite_score': 0.85, 'balanced_accuracy': 0.92}}
     figsize : tuple, default=(12, 10)
         Figure size (width, height).
     save_path : str or Path, optional
@@ -289,8 +286,12 @@ def plot_stacked_states(
     ...     'Sparse Jump Poisson': sjm_poisson,
     ...     'Sparse Jump Gaussian': sjm_gaussian,
     ... }
+    >>> metrics = {
+    ...     'Sparse Jump Poisson': {'composite_score': 0.85, 'balanced_accuracy': 0.92},
+    ...     'Sparse Jump Gaussian': {'composite_score': 0.78, 'balanced_accuracy': 0.88}
+    ... }
     >>> fig = plot_stacked_states(X, models, true_states=states, 
-    ...                           feature_to_plot='feature_0')
+    ...                           feature_to_plot='feature_0', model_metrics=metrics)
     """
     # Import the BAC permutation function from metrics module
     import sys
@@ -323,7 +324,7 @@ def plot_stacked_states(
     if n_panels == 1:
         axes = [axes]
     
-    fig.suptitle('Time Series and State Assignments', fontsize=16, y=0.995)
+    # Title removed per user request
     
     data_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
     
@@ -333,10 +334,10 @@ def plot_stacked_states(
     for i, feature in enumerate(features):
         ax = axes[panel_idx]
         ax.plot(X.index, X[feature], color=data_colors[i % len(data_colors)], 
-               linewidth=1.5, alpha=0.8)
-        ax.set_ylabel(feature, fontsize=10)
+               linewidth=2.0, alpha=0.8)
+        ax.set_ylabel(feature, fontsize=18, weight='bold')
         add_grid(ax, alpha=0.3)
-        ax.tick_params(axis='y', labelsize=9)
+        ax.tick_params(axis='y', labelsize=16)
         panel_idx += 1
     
     def plot_state_bars(ax: plt.Axes, labels: Union[np.ndarray, pd.Series], 
@@ -365,14 +366,14 @@ def plot_stacked_states(
                     current_state = labels_array[t]
                     start_idx = t
         
-        ax.set_ylabel(label_text, fontsize=10, rotation=0, ha='right', va='center')
+        ax.set_ylabel(label_text, fontsize=14, rotation=0, ha='right', va='center')
         ax.set_ylim(0.5, n_states + 0.5)
         ax.set_yticks(range(1, n_states + 1))
-        ax.set_yticklabels([f'S{i}' for i in range(1, n_states + 1)], fontsize=8)
+        ax.set_yticklabels([f'S{i}' for i in range(1, n_states + 1)], fontsize=12)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(True)
-        ax.tick_params(left=True, labelsize=8)
+        ax.tick_params(left=True, labelsize=12)
     
     # Get true states as numpy array
     true_states_array = None
@@ -385,8 +386,9 @@ def plot_stacked_states(
         plot_state_bars(ax, true_states_array, 'True\nStates')
         panel_idx += 1
     
-    # Plot model predictions with best permutation
-    for model_name, model in models_dict.items():
+    # Plot model predictions with best permutation and add metrics on the right
+    model_panel_start = panel_idx
+    for model_idx, (model_name, model) in enumerate(models_dict.items()):
         ax = axes[panel_idx]
         
         # Get model labels
@@ -403,13 +405,48 @@ def plot_stacked_states(
         else:
             plot_state_bars(ax, model_labels, model_name)
         
+        # Add metrics text on the right side of this panel if available
+        if model_metrics and model_name in model_metrics:
+            metrics = model_metrics[model_name]
+            metric_text_parts = []
+            
+            # Format metrics in a specific order
+            metric_order = ['composite_score', 'balanced_accuracy', 'breakpoint_error', 'bic']
+            metric_labels = {
+                'composite_score': 'Comp',
+                'balanced_accuracy': 'BAC',
+                'breakpoint_error': 'BP Err',
+                'bic': 'BIC'
+            }
+            
+            for metric_key in metric_order:
+                if metric_key in metrics:
+                    label = metric_labels.get(metric_key, metric_key)
+                    value = metrics[metric_key]
+                    if metric_key in ['composite_score', 'balanced_accuracy']:
+                        metric_text_parts.append(f"{label}={value:.2f}")
+                    elif metric_key == 'breakpoint_error':
+                        metric_text_parts.append(f"{label}={int(value)}")
+                    else:
+                        metric_text_parts.append(f"{label}={value:.0f}")
+            
+            if metric_text_parts:
+                metric_text = '\n'.join(metric_text_parts)
+                # Add text box on the right side of the panel
+                ax.text(1.02, 0.5, metric_text, 
+                       transform=ax.transAxes,
+                       fontsize=11, 
+                       verticalalignment='center',
+                       bbox=dict(boxstyle='round,pad=0.5', facecolor='white', 
+                                alpha=0.9, edgecolor='gray', linewidth=1.5))
+        
         panel_idx += 1
     
     # Set x-axis label
-    axes[-1].set_xlabel('Time Step', fontsize=11)
-    axes[-1].tick_params(axis='x', labelsize=9)
+    axes[-1].set_xlabel('Time Step', fontsize=18, weight='bold')
+    axes[-1].tick_params(axis='x', labelsize=16)
     
-    plt.tight_layout(rect=[0, 0.01, 1, 0.99])
+    plt.tight_layout(rect=[0, 0.01, 0.85, 0.99])
     
     if save_path is not None:
         save_figure(fig, save_path)
@@ -447,7 +484,7 @@ def plot_multiple_series_comparison(
     if n_series == 1:
         axes = [axes]
     
-    fig.suptitle(title, fontsize=16)
+    # Title removed per user request
     
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
     
@@ -460,12 +497,12 @@ def plot_multiple_series_comparison(
                    color=colors[col_idx % len(colors)],
                    label=col, linewidth=1.5, alpha=0.8)
         
-        ax.set_ylabel(label, fontsize=11)
+        ax.set_ylabel(label, fontsize=16)
         add_grid(ax)
         if len(df.columns) <= 5:  # Only show legend if not too many columns
-            ax.legend(loc='upper right', fontsize=9)
+            ax.legend(loc='upper right', fontsize=14)
     
-    axes[-1].set_xlabel('Time Step', fontsize=11)
+    axes[-1].set_xlabel('Time Step', fontsize=16)
     plt.tight_layout(rect=[0, 0.02, 1, 0.98])
     
     if save_path is not None:

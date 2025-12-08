@@ -38,6 +38,11 @@ warnings.filterwarnings(
     message='invalid value encountered in divide',
     category=RuntimeWarning
 )
+warnings.filterwarnings(
+    'ignore',
+    message='invalid value encountered in scalar subtract',
+    category=RuntimeWarning
+)
 
 from .config import SimulationConfig, GridSearchResult, ExperimentConfig
 from .data_generation import generate_data

@@ -410,8 +410,8 @@ def compute_bic(model, X: np.ndarray, predicted_states: np.ndarray) -> float:
     # Count free parameters
     k = K * P_active + (K - 1) + n_jumps
     
-    # Compute log-likelihood (Poisson NLL, ignoring constants)
-    log_likelihood = _compute_poisson_log_likelihood(model, X, predicted_states)
+    # Compute log-likelihood using the model's actual distribution
+    log_likelihood = _compute_log_likelihood(model, X, predicted_states)
     
     # BIC = k * ln(n) - 2 * ln(L)
     bic = k * np.log(n) - 2 * log_likelihood
@@ -456,8 +456,8 @@ def compute_aic(model, X: np.ndarray, predicted_states: np.ndarray) -> float:
     # Count free parameters
     k = K * P_active + (K - 1) + n_jumps
     
-    # Compute log-likelihood
-    log_likelihood = _compute_poisson_log_likelihood(model, X, predicted_states)
+    # Compute log-likelihood using the model's actual distribution
+    log_likelihood = _compute_log_likelihood(model, X, predicted_states)
     
     # AIC = 2k - 2 * ln(L)
     aic = 2 * k - 2 * log_likelihood
@@ -503,11 +503,6 @@ def compute_silhouette_coefficient(model, X: np.ndarray,
     float
         Mean silhouette coefficient in [-1, 1] (higher is better)
         
-    References
-    ----------
-    Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the
-    interpretation and validation of cluster analysis.
-    Journal of Computational and Applied Mathematics, 20, 53-65.
     """
     X = np.asarray(X)
     predicted_states = np.asarray(predicted_states)
@@ -563,6 +558,27 @@ def compute_silhouette_coefficient(model, X: np.ndarray,
 # Helper Functions for Unsupervised Metrics
 ###############################################################################
 
+def _compute_log_likelihood(model, X: np.ndarray, 
+                           predicted_states: np.ndarray) -> float:
+    """
+    Compute log-likelihood for the fitted model using its distribution type.
+    
+    Returns the maximized log-likelihood (ignoring additive constants).
+    
+    Note: This is used for BIC/AIC computation. Uses the model's centroids
+    as the fitted parameters.
+    """
+    # Determine the model's distribution type
+    distribution = getattr(model, 'distribution', 'Poisson')
+    
+    if distribution == 'Gaussian':
+        return _compute_gaussian_log_likelihood(model, X, predicted_states)
+    else:
+        # Both Poisson and PoissonKL use Poisson likelihood
+        # (PoissonKL has additional KL penalty in training, but likelihood is still Poisson)
+        return _compute_poisson_log_likelihood(model, X, predicted_states)
+
+
 def _compute_poisson_log_likelihood(model, X: np.ndarray, 
                                     predicted_states: np.ndarray) -> float:
     """
@@ -599,6 +615,54 @@ def _compute_poisson_log_likelihood(model, X: np.ndarray,
         mu_safe = np.maximum(mu_t, epsilon)
         
         ll_t = np.sum(weights * (y_t * np.log(mu_safe) - mu_t))
+        log_likelihood += ll_t
+    
+    return float(log_likelihood)
+
+
+def _compute_gaussian_log_likelihood(model, X: np.ndarray, 
+                                     predicted_states: np.ndarray) -> float:
+    """
+    Compute Gaussian log-likelihood for the fitted model.
+    
+    Returns the maximized log-likelihood (ignoring additive constants).
+    """
+    X = np.asarray(X)
+    predicted_states = np.asarray(predicted_states)
+    
+    # Get centroids (means) and weights
+    centroids = model.centers_
+    if hasattr(model, 'feat_weights'):
+        weights = model.feat_weights.values if hasattr(model.feat_weights, 'values') else model.feat_weights
+    else:
+        weights = np.ones(X.shape[1])
+    
+    # Estimate variance for each state
+    unique_states = np.unique(predicted_states)
+    variances = np.zeros_like(centroids)
+    
+    for state_idx, state in enumerate(unique_states):
+        state_mask = predicted_states == state
+        if np.sum(state_mask) > 0:
+            X_state = X[state_mask]
+            mu_state = centroids[state_idx]
+            # Weighted variance estimation
+            variances[state_idx] = np.sum(weights * np.var(X_state, axis=0)) / np.sum(weights)
+            # Avoid zero variance
+            variances[state_idx] = max(variances[state_idx], 1e-6)
+    
+    log_likelihood = 0.0
+    
+    for t in range(len(X)):
+        y_t = X[t]
+        state_t = predicted_states[t]
+        state_idx = np.where(unique_states == state_t)[0][0]
+        mu_t = centroids[state_idx]
+        sigma2_t = variances[state_idx]
+        
+        # Gaussian log-likelihood (ignoring constant term):
+        # ln(L) = -0.5 * sum_f w_f * ((y_f - mu_f)^2 / sigma^2 + ln(sigma^2))
+        ll_t = -0.5 * np.sum(weights * (((y_t - mu_t)**2 / sigma2_t) + np.log(sigma2_t)))
         log_likelihood += ll_t
     
     return float(log_likelihood)

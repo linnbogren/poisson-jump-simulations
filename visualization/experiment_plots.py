@@ -164,29 +164,40 @@ class ExperimentVisualizer:
         print("-"*80)
         
         try:
-            # Select only metric columns
-            exclude_cols = [
-                'n_samples', 'n_states', 'n_informative', 'n_noise',
-                'n_total_features', 'delta', 'lambda_0', 'persistence',
-                'distribution_type', 'correlated_noise', 'random_seed',
-                'model_name', 'best_n_components', 'best_jump_penalty',
-                'best_max_feats'
-            ]
-            metric_cols = [col for col in self.best_results.columns 
-                          if col not in exclude_cols]
+            # Use specific metrics from config if provided
+            if 'correlation_metrics' in self.config:
+                # Filter to only metrics that exist in the dataframe
+                metric_cols = [col for col in self.config['correlation_metrics'] 
+                              if col in self.best_results.columns]
+            else:
+                # Fall back to auto-detection (exclude non-metric columns)
+                exclude_cols = [
+                    'n_samples', 'n_states', 'n_informative', 'n_noise',
+                    'n_total_features', 'delta', 'lambda_0', 'persistence',
+                    'distribution_type', 'correlated_noise', 'random_seed',
+                    'model_name', 'best_n_components', 'best_jump_penalty',
+                    'best_max_feats'
+                ]
+                metric_cols = [col for col in self.best_results.columns 
+                              if col not in exclude_cols]
             
-            fig = plot_correlation_matrix(
-                self.best_results[metric_cols],
-                title='Metric Correlations',
-                figsize=self.config['figsize_large']
-            )
-            fig.savefig(
-                self.output_dir / "correlation_matrix.png", 
-                dpi=self.config['dpi'], 
-                bbox_inches='tight'
-            )
-            print("  ✓ Saved: correlation_matrix.png")
-            plt.close(fig)
+            # Only plot if we have at least 2 metrics
+            if len(metric_cols) >= 2:
+                fig = plot_correlation_matrix(
+                    self.best_results[metric_cols],
+                    metrics=metric_cols,
+                    title='Metric Correlations',
+                    figsize=self.config['figsize_large']
+                )
+                fig.savefig(
+                    self.output_dir / "correlation_matrix.png", 
+                    dpi=self.config['dpi'], 
+                    bbox_inches='tight'
+                )
+                print("  ✓ Saved: correlation_matrix.png")
+                plt.close(fig)
+            else:
+                print("  ⚠ Skipped correlation matrix (insufficient metrics available)")
         except Exception as e:
             print(f"  ✗ Error creating correlation matrix: {e}")
     

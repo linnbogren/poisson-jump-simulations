@@ -81,12 +81,8 @@ def plot_model_comparison_bars(
     # Customize
     ax.set_xticks(x_pos)
     ax.set_xticklabels(stats[model_column], rotation=45, ha='right')
-    ax.set_ylabel(format_metric_name(metric), fontsize=12)
-    ax.set_xlabel('Model', fontsize=12)
-    
-    if title is None:
-        title = f'Model Comparison: {format_metric_name(metric)}'
-    ax.set_title(title, fontsize=14, pad=20)
+    ax.set_ylabel(format_metric_name(metric), fontsize=16)
+    ax.set_xlabel('Model', fontsize=16)
     
     add_grid(ax, alpha=0.3)
     
@@ -174,12 +170,8 @@ def plot_parameter_sensitivity(
                            alpha=0.2, color=color)
     
     # Customize
-    ax.set_xlabel(format_parameter_name(parameter), fontsize=12)
-    ax.set_ylabel(format_metric_name(metric), fontsize=12)
-    
-    if title is None:
-        title = f'Parameter Sensitivity: {format_parameter_name(parameter)}'
-    ax.set_title(title, fontsize=14, pad=20)
+    ax.set_xlabel(format_parameter_name(parameter), fontsize=16)
+    ax.set_ylabel(format_metric_name(metric), fontsize=16)
     
     add_grid(ax)
     ax.legend(loc='best', fontsize=10, framealpha=0.9)
@@ -268,14 +260,13 @@ def plot_multiple_parameter_sensitivity(
         add_grid(ax, alpha=0.3)
         
         if idx == 0:
-            ax.legend(loc='best', fontsize=9)
+            ax.legend(loc='best', fontsize=14)
     
     # Hide unused subplots
     for idx in range(n_params, len(axes)):
         axes[idx].set_visible(False)
     
-    fig.suptitle(f'Parameter Sensitivity: {format_metric_name(metric)}', 
-                fontsize=16, y=0.995)
+    # Main title removed per user request
     plt.tight_layout(rect=[0, 0.01, 1, 0.99])
     
     if save_path is not None:
@@ -410,16 +401,15 @@ def plot_metric_comparison_grid(
         
         ax.set_xticks(x_pos)
         ax.set_xticklabels(stats[model_column], rotation=45, ha='right', fontsize=9)
-        ax.set_ylabel(format_metric_name(metric), fontsize=10)
-        ax.set_title(format_metric_name(metric), fontsize=11)
+        ax.set_ylabel(format_metric_name(metric), fontsize=16)
+        # Subplot titles removed per user request
         add_grid(ax, alpha=0.3)
     
     # Hide unused subplots
     for idx in range(n_metrics, len(axes)):
         axes[idx].set_visible(False)
     
-    fig.suptitle('Model Performance Comparison Across Metrics', 
-                fontsize=16, y=0.995)
+    # Main title removed per user request
     plt.tight_layout(rect=[0, 0.02, 1, 0.99])
     
     if save_path is not None:

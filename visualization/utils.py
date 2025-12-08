@@ -52,7 +52,7 @@ def setup_plotting_style(
     style: str = DEFAULT_STYLE,
     palette: str = DEFAULT_PALETTE,
     context: str = DEFAULT_CONTEXT,
-    font_scale: float = 1.0
+    font_scale: float = 1.8
 ) -> None:
     """Configure matplotlib and seaborn plotting styles.
     
@@ -64,7 +64,7 @@ def setup_plotting_style(
         Seaborn color palette.
     context : str, default='notebook'
         Seaborn context (paper, notebook, talk, poster).
-    font_scale : float, default=1.0
+    font_scale : float, default=1.8
         Font scale multiplier.
     """
     sns.set_style(style)
@@ -76,15 +76,15 @@ def setup_plotting_style(
         'figure.facecolor': 'white',
         'axes.facecolor': 'white',
         'axes.edgecolor': '#cccccc',
-        'axes.labelsize': 11,
-        'axes.titlesize': 12,
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'legend.fontsize': 10,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'legend.fontsize': 14,
         'legend.frameon': True,
         'legend.framealpha': 0.8,
         'grid.alpha': 0.3,
-        'lines.linewidth': 1.5,
+        'lines.linewidth': 2.0,
     })
 
 

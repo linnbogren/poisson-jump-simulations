@@ -13,6 +13,9 @@ Quick Start
 # Simplified API (recommended)
 from .api import visualize_results, compare_optimization_methods
 
+# LaTeX table generation
+from .latex_tables import create_all_tables, create_model_comparison_table, create_performance_by_params_table, create_hyperparameter_table
+
 # Optuna-specific visualizations
 from .optuna_plots import (
     plot_optuna_trials,
