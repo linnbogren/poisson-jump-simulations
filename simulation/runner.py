@@ -93,11 +93,14 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
     # Fit all models on same data
     all_results = []
     best_models = {}  # If saving, track best model for each type
-    best_scores = {}  # Track best BAC for each model type
+    best_scores = {}  # Track best metric value for each model type
     failed_convergence = {}  # Track convergence failures
     
+    # Initialize best scores based on optimization direction
+    initial_score = float('inf') if optimize_metric in ['bic', 'aic'] else -1.0
+    
     for model_name in model_names:
-        best_scores[model_name] = -1.0
+        best_scores[model_name] = initial_score
         failed_convergence[model_name] = 0
         
         # Helper function for parallel execution
@@ -143,7 +146,12 @@ def run_single_replication_grid(args: Tuple) -> List[GridSearchResult]:
                 # Check if optimize_metric is in results (model may have failed/not converged)
                 if optimize_metric in result:
                     metric_value = result[optimize_metric]
-                    if metric_value > best_scores[model_name]:
+                    # BIC and AIC should be minimized (lower is better)
+                    is_better = (
+                        (metric_value < best_scores[model_name]) if optimize_metric in ['bic', 'aic']
+                        else (metric_value > best_scores[model_name])
+                    )
+                    if is_better:
                         best_scores[model_name] = metric_value
                         best_models[model_name] = {
                             'model': result.get('model'),

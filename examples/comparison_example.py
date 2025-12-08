@@ -175,7 +175,7 @@ def main():
     # Define a comparison experiment
     config = {
         "experiment_name": "poisson_delta_comparison",
-        "num_simulations": 5,
+        "num_simulations": 1,
         
         # Test multiple delta values and feature counts
         "data_generation": [
@@ -195,7 +195,7 @@ def main():
         "models_to_run": ["Gaussian", "Poisson", "PoissonKL"],
         
         # Optimize on balanced accuracy
-        "optimize_metric": "balanced_accuracy",
+        "optimize_metric": "bic",
         
         # Enable grid search for model selection
         "hyperparameters": {

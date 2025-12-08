@@ -245,6 +245,7 @@ def plot_stacked_states(
     true_states: Optional[Union[np.ndarray, pd.Series]] = None,
     feature_to_plot: Optional[Union[str, List[str]]] = None,
     model_metrics: Optional[Dict[str, Dict[str, float]]] = None,
+    repredict: bool = True,
     figsize: tuple = (12, 10),
     save_path: Optional[Union[str, Path]] = None,
 ) -> plt.Figure:
@@ -270,6 +271,9 @@ def plot_stacked_states(
     model_metrics : dict, optional
         Dictionary of {model_name: {metric_name: value}} for displaying performance metrics.
         Example: {'Gaussian': {'composite_score': 0.85, 'balanced_accuracy': 0.92}}
+    repredict : bool, default=True
+        If True, call model.predict(X) to get fresh predictions on the provided data.
+        If False, use model.labels_ (predictions from training data).
     figsize : tuple, default=(12, 10)
         Figure size (width, height).
     save_path : str or Path, optional
@@ -391,8 +395,14 @@ def plot_stacked_states(
     for model_idx, (model_name, model) in enumerate(models_dict.items()):
         ax = axes[panel_idx]
         
-        # Get model labels
-        model_labels = model.labels_.to_numpy() if hasattr(model.labels_, 'to_numpy') else np.array(model.labels_)
+        # Get model labels - either repredict on current data or use stored labels
+        if repredict and hasattr(model, 'predict'):
+            # Predict on the current data X
+            model_labels = model.predict(X)
+            model_labels = model_labels.to_numpy() if hasattr(model_labels, 'to_numpy') else np.array(model_labels)
+        else:
+            # Use stored labels from training
+            model_labels = model.labels_.to_numpy() if hasattr(model.labels_, 'to_numpy') else np.array(model.labels_)
         
         # If true states are available, find best permutation
         if true_states_array is not None:
