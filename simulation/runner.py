@@ -702,7 +702,7 @@ def select_best_models(grid_df: pd.DataFrame, metric: str = 'balanced_accuracy')
         'max_feats': 'best_max_feats'
     })
     
-    # Drop unnecessary columns
-    best_df = best_df.drop(columns=['n_selected_total'], errors='ignore')
+    # Keep n_selected_total for analysis (number of features actually selected by the model)
+    # Note: This is NOT dropped anymore - it's useful for understanding feature selection behavior
     
     return best_df

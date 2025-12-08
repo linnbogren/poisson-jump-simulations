@@ -125,10 +125,15 @@ def create_model_comparison_table(
     n_cols = len(metrics)
     col_spec = 'l' + 'r' * n_cols
     
+    # Configuration columns (excluding random_seed which identifies replications)
+    config_cols = ['delta', 'n_samples', 'n_states', 'n_informative', 'n_total_features',
+                   'lambda_0', 'persistence', 'distribution_type', 'correlated_noise']
+    config_cols = [c for c in config_cols if c in results_df.columns]
+    
     latex = []
     latex.append("\\begin{table}[htbp]")
     latex.append("  \\centering")
-    latex.append("  \\caption{Model Comparison: Mean (Std) across all configurations}")
+    latex.append("  \\caption{Model Comparison: Best hyperparameters per replication, mean (std) across replications}")
     latex.append("  \\label{tab:model_comparison}")
     latex.append(f"  \\begin{{tabular}}{{{col_spec}}}")
     latex.append("    \\toprule")
@@ -141,10 +146,12 @@ def create_model_comparison_table(
     latex.append("    \\midrule")
     
     # Determine significantly best models for each metric
+    # For each metric, compute mean across all replications and configs for each model
     metric_winners = {}
     for metric_col, _, _, higher_is_better in metrics:
         data_groups = {}
         for model in models:
+            # Get all replications for this model (across all configs)
             model_data = results_df[results_df['model_name'] == model][metric_col].values
             model_data = model_data[~np.isnan(model_data)]
             data_groups[model] = model_data
@@ -221,7 +228,7 @@ def create_model_comparison_table(
     latex.append("  \\end{tabular}")
     latex.append("  \\begin{tablenotes}")
     latex.append("    \\small")
-    latex.append(f"    \\item Note: Bold values indicate statistically significant best performance ($p < {alpha}$).")
+    latex.append(f"    \\item Note: Best hyperparameters per replication (optimized on the configured metric). Bold values indicate statistically significant best performance ($p < {alpha}$).")
     latex.append("  \\end{tablenotes}")
     latex.append("\\end{table}")
     
@@ -290,9 +297,9 @@ def create_performance_by_params_table(
     latex.append("  \\centering")
     
     if param2:
-        latex.append(f"  \\caption{{{metric_name} by {param1.replace('_', ' ').title()} and {param2.replace('_', ' ').title()}}}")
+        latex.append(f"  \\caption{{{metric_name} by {param1.replace('_', ' ').title()} and {param2.replace('_', ' ').title()}: Mean (Std) across replications}}")
     else:
-        latex.append(f"  \\caption{{{metric_name} by {param1.replace('_', ' ').title()}}}")
+        latex.append(f"  \\caption{{{metric_name} by {param1.replace('_', ' ').title()}: Mean (Std) across replications}}")
     
     label_suffix = metric.replace('_', '')
     latex.append(f"  \\label{{tab:{label_suffix}_by_{param1}}}")
@@ -478,7 +485,7 @@ def create_performance_by_params_table(
     
     latex.append("  \\begin{tablenotes}")
     latex.append("    \\small")
-    latex.append(f"    \\item Note: Bold values indicate statistically significant best model for each configuration ($p < {alpha}$).")
+    latex.append(f"    \\item Note: Best hyperparameters per replication (optimized on the configured metric). Bold values indicate statistically significant best model for each configuration ($p < {alpha}$).")
     latex.append("  \\end{tablenotes}")
     
     latex.append("\\end{table}")
@@ -573,6 +580,169 @@ def create_hyperparameter_table(
     
     latex.append("    \\bottomrule")
     latex.append("  \\end{tabular}")
+    latex.append("\\end{table}")
+    
+    latex_code = "\n".join(latex)
+    
+    if output_file:
+        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        with open(output_file, 'w') as f:
+            f.write(latex_code)
+    
+    return latex_code
+
+
+def create_hyperparameter_by_config_table(
+    results_df: pd.DataFrame,
+    param_name: str,
+    param_display_name: str,
+    param_column: str,
+    config_param1: str,
+    config_param2: Optional[str] = None,
+    output_file: Optional[Union[str, Path]] = None,
+    decimals: int = 1
+) -> str:
+    """
+    Create a LaTeX table showing hyperparameter selections by data configuration.
+    
+    Shows mean (std) of selected hyperparameter values across replications for each
+    model and data configuration combination.
+    
+    Parameters
+    ----------
+    results_df : pd.DataFrame
+        Results dataframe from simulation
+    param_name : str
+        Short name for the parameter (e.g., 'jump_penalty', 'n_states', 'kappa')
+    param_display_name : str
+        Display name for table caption and label
+    param_column : str
+        Column name in results_df (e.g., 'best_jump_penalty', 'best_n_components', 'best_max_feats')
+    config_param1 : str
+        Primary grouping parameter (rows)
+    config_param2 : str, optional
+        Secondary parameter (columns). If None, uses models as columns.
+    output_file : str or Path, optional
+        If provided, save table to this file
+    decimals : int, default=1
+        Number of decimal places for formatting
+        
+    Returns
+    -------
+    str
+        LaTeX table code
+    """
+    # Check if parameter exists
+    if param_column not in results_df.columns:
+        return ""
+    
+    # Configuration columns (excluding random_seed which identifies replications)
+    config_cols = ['delta', 'n_samples', 'n_states', 'n_informative', 'n_total_features',
+                   'lambda_0', 'persistence', 'distribution_type', 'correlated_noise']
+    config_cols = [c for c in config_cols if c in results_df.columns]
+    
+    # Get unique values
+    param1_values = sorted(results_df[config_param1].unique())
+    models = sorted(results_df['model_name'].unique())
+    
+    if config_param2:
+        param2_values = sorted(results_df[config_param2].unique())
+        col_spec = 'l' + 'c' * len(param2_values)
+    else:
+        col_spec = 'l' + 'c' * len(models)
+    
+    latex = []
+    latex.append("\\begin{table}[htbp]")
+    latex.append("  \\centering")
+    
+    if config_param2:
+        latex.append(f"  \\caption{{{param_display_name} by {config_param1.replace('_', ' ').title()} and {config_param2.replace('_', ' ').title()}: Mean (Std) across replications}}")
+    else:
+        latex.append(f"  \\caption{{{param_display_name} by {config_param1.replace('_', ' ').title()}: Mean (Std) across replications}}")
+    
+    latex.append(f"  \\label{{tab:{param_name}_by_{config_param1}}}")
+    latex.append(f"  \\begin{{tabular}}{{{col_spec}}}")
+    latex.append("    \\toprule")
+    
+    # Header row
+    header = f"    {config_param1.replace('_', ' ').title()}"
+    if config_param2:
+        for val in param2_values:
+            header += f" & {val}"
+    else:
+        for model in models:
+            header += f" & {model}"
+    latex.append(header + " \\\\")
+    latex.append("    \\midrule")
+    
+    # Data rows
+    for p1_val in param1_values:
+        if config_param2:
+            # Group header
+            latex.append(f"    \\multicolumn{{{len(param2_values)+1}}}{{l}}{{$\\mathbf{{{config_param1} = {p1_val}}}$}} \\\\")
+            
+            # One row per model
+            for model in models:
+                row = f"    {model}"
+                for p2_val in param2_values:
+                    # Filter data for this combination
+                    mask = (
+                        (results_df['model_name'] == model) &
+                        (results_df[config_param1] == p1_val) &
+                        (results_df[config_param2] == p2_val)
+                    )
+                    combo_data = results_df[mask]
+                    
+                    if len(combo_data) == 0:
+                        row += " & ---"
+                    else:
+                        # Group by config (excluding random_seed) to get replication stats
+                        group_cols = [c for c in config_cols if c != 'random_seed']
+                        grouped = combo_data.groupby(group_cols)[param_column].agg(['mean', 'std']).reset_index()
+                        
+                        if len(grouped) > 0:
+                            mean_val = grouped['mean'].iloc[0]
+                            std_val = grouped['std'].iloc[0] if not pd.isna(grouped['std'].iloc[0]) else 0
+                            row += f" & {format_mean_std(mean_val, std_val, decimals)}"
+                        else:
+                            row += " & ---"
+                
+                latex.append(row + " \\\\")
+            
+            latex.append("    \\midrule")
+        else:
+            # Simple row per param1 value
+            row = f"    {p1_val}"
+            for model in models:
+                # Filter data for this combination
+                mask = (
+                    (results_df['model_name'] == model) &
+                    (results_df[config_param1] == p1_val)
+                )
+                combo_data = results_df[mask]
+                
+                if len(combo_data) == 0:
+                    row += " & ---"
+                else:
+                    # Group by config (excluding random_seed) to get replication stats
+                    group_cols = [c for c in config_cols if c != 'random_seed']
+                    grouped = combo_data.groupby(group_cols)[param_column].agg(['mean', 'std']).reset_index()
+                    
+                    if len(grouped) > 0:
+                        mean_val = grouped['mean'].iloc[0]
+                        std_val = grouped['std'].iloc[0] if not pd.isna(grouped['std'].iloc[0]) else 0
+                        row += f" & {format_mean_std(mean_val, std_val, decimals)}"
+                    else:
+                        row += " & ---"
+            
+            latex.append(row + " \\\\")
+    
+    latex.append("    \\bottomrule")
+    latex.append("  \\end{tabular}")
+    latex.append("  \\begin{tablenotes}")
+    latex.append("    \\small")
+    latex.append(f"    \\item Note: Selected hyperparameters per replication (optimized on the configured metric). Values show mean (std) across replications.")
+    latex.append("  \\end{tablenotes}")
     latex.append("\\end{table}")
     
     latex_code = "\n".join(latex)
@@ -717,6 +887,78 @@ def create_all_tables(
         results_df,
         output_file=output_path / f"{table_count:02d}_hyperparameters.tex"
     )
+    table_count += 1
+    
+    # Create hyperparameter-by-config tables for each hyperparameter type
+    hyperparameter_configs = []
+    
+    # Jump penalty table
+    if 'best_jump_penalty' in results_df.columns and results_df['best_jump_penalty'].notna().any():
+        hyperparameter_configs.append({
+            'param_name': 'jump_penalty',
+            'param_display_name': 'Jump Penalty ($\\lambda$)',
+            'param_column': 'best_jump_penalty',
+            'decimals': 1
+        })
+    
+    # Number of states table
+    if 'best_n_components' in results_df.columns and results_df['best_n_components'].notna().any():
+        hyperparameter_configs.append({
+            'param_name': 'n_states',
+            'param_display_name': 'Number of States ($K$)',
+            'param_column': 'best_n_components',
+            'decimals': 1
+        })
+    
+    # Max features (kappa) table
+    if 'best_max_feats' in results_df.columns and results_df['best_max_feats'].notna().any():
+        hyperparameter_configs.append({
+            'param_name': 'kappa',
+            'param_display_name': 'Max Features ($\\kappa^2$)',
+            'param_column': 'best_max_feats',
+            'decimals': 1
+        })
+    
+    # Number of selected features table (actual features selected, not max)
+    if 'n_selected_total' in results_df.columns and results_df['n_selected_total'].notna().any():
+        hyperparameter_configs.append({
+            'param_name': 'n_selected',
+            'param_display_name': 'Selected Features',
+            'param_column': 'n_selected_total',
+            'decimals': 1
+        })
+    
+    # Create tables for each hyperparameter
+    for hparam_config in hyperparameter_configs:
+        if len(varying_params) == 1:
+            if verbose:
+                print(f"\n{table_count}. Creating {hparam_config['param_display_name']} by {varying_params[0]} Table...")
+            create_hyperparameter_by_config_table(
+                results_df,
+                param_name=hparam_config['param_name'],
+                param_display_name=hparam_config['param_display_name'],
+                param_column=hparam_config['param_column'],
+                config_param1=varying_params[0],
+                output_file=output_path / f"{table_count:02d}_{hparam_config['param_name']}_by_{varying_params[0]}.tex",
+                decimals=hparam_config['decimals']
+            )
+            table_count += 1
+        
+        elif len(varying_params) >= 2:
+            param1, param2 = varying_params[:2]
+            if verbose:
+                print(f"\n{table_count}. Creating {hparam_config['param_display_name']} by {param1} and {param2} Table...")
+            create_hyperparameter_by_config_table(
+                results_df,
+                param_name=hparam_config['param_name'],
+                param_display_name=hparam_config['param_display_name'],
+                param_column=hparam_config['param_column'],
+                config_param1=param1,
+                config_param2=param2,
+                output_file=output_path / f"{table_count:02d}_{hparam_config['param_name']}_by_{param1}_{param2}.tex",
+                decimals=hparam_config['decimals']
+            )
+            table_count += 1
     
     if verbose:
         print("\n" + "=" * 80)
