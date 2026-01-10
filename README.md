@@ -2,8 +2,6 @@
 
 Simulation testing and real-data analysis for sparse jump models (Gaussian, Poisson, and PoissonKL distributions).
 
-> ⚠️ **Disclaimer**: This library is experimental and primarily vibe-coded for research purposes. Use at your own discretion and verify results independently.
-
 ## Features
 
 - **Synthetic Data Simulations**: Test models on generated data with known ground truth labels
